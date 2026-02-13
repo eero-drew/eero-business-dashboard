@@ -1,0 +1,14 @@
+# Base dependencies (from minirack-pi)
+flask==2.3.3
+flask-cors==4.0.0
+requests==2.31.0
+gunicorn==21.2.0
+pytz==2023.3
+
+# Additional dependencies for eero Business Dashboard
+sqlalchemy>=2.0.0
+reportlab>=4.0.0
+
+# Testing
+pytest>=7.0.0
+hypothesis>=6.0.0

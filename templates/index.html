@@ -1,0 +1,2616 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
+    <title>eero Business Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box;
+        }
+
+        /* ---- Theme Variables ---- */
+        :root {
+            --bg-body-start: #001a33;
+            --bg-body-end: #003366;
+            --bg-header: rgba(0,20,40,.9);
+            --border-accent: rgba(77,166,255,.3);
+            --accent: #4da6ff;
+            --accent-bg: rgba(77,166,255,.2);
+            --accent-bg-hover: rgba(77,166,255,.4);
+            --accent-border: rgba(77,166,255,.4);
+            --accent-bg-light: rgba(77,166,255,.15);
+            --text-primary: #fff;
+            --text-secondary: rgba(255,255,255,.7);
+            --text-muted: rgba(255,255,255,.6);
+            --text-faint: rgba(255,255,255,.5);
+            --text-dim: rgba(255,255,255,.4);
+            --card-bg: rgba(0,40,80,.7);
+            --card-bg-alt: rgba(0,40,80,.5);
+            --stat-bg: rgba(0,20,40,.6);
+            --device-bg: rgba(0,30,60,.5);
+            --modal-bg: linear-gradient(135deg, #001a33 0%, #003366 100%);
+            --modal-overlay: rgba(0,0,0,.8);
+            --input-bg: rgba(0,20,40,.8);
+            --input-border: rgba(77,166,255,.3);
+            --status-bg: rgba(0,0,0,.3);
+            --grid-line: rgba(255,255,255,.1);
+            --chart-text: rgba(255,255,255,.7);
+            --chart-tick: rgba(255,255,255,.5);
+            --log-bg: #000;
+            --log-text: rgba(255,255,255,.6);
+            --cancel-bg: rgba(255,255,255,.1);
+            --cancel-border: rgba(255,255,255,.3);
+            --divider: rgba(255,255,255,.1);
+            --btn-gradient: linear-gradient(135deg, #4da6ff 0%, #667eea 100%);
+        }
+
+        [data-theme="light"] {
+            --bg-body-start: #f0f2f5;
+            --bg-body-end: #e8ecf1;
+            --bg-header: #ffffff;
+            --border-accent: rgba(0,61,92,.15);
+            --accent: #003D5C;
+            --accent-bg: rgba(0,61,92,.08);
+            --accent-bg-hover: rgba(0,61,92,.15);
+            --accent-border: rgba(0,61,92,.2);
+            --accent-bg-light: rgba(0,61,92,.06);
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --text-faint: #a0aec0;
+            --text-dim: #cbd5e0;
+            --card-bg: #ffffff;
+            --card-bg-alt: #f7fafc;
+            --stat-bg: #f0f4f8;
+            --device-bg: #f7fafc;
+            --modal-bg: linear-gradient(135deg, #ffffff 0%, #f0f2f5 100%);
+            --modal-overlay: rgba(0,0,0,.4);
+            --input-bg: #ffffff;
+            --input-border: rgba(0,61,92,.2);
+            --status-bg: rgba(0,61,92,.06);
+            --grid-line: rgba(0,0,0,.08);
+            --chart-text: #4a5568;
+            --chart-tick: #718096;
+            --log-bg: #f7fafc;
+            --log-text: #4a5568;
+            --cancel-bg: rgba(0,0,0,.05);
+            --cancel-border: rgba(0,0,0,.15);
+            --divider: rgba(0,0,0,.08);
+            --btn-gradient: linear-gradient(135deg, #003D5C 0%, #005a87 100%);
+        }
+
+        @keyframes map-pulse {
+            0% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        .pulse-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: relative;
+        }
+        .pulse-marker::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: inherit;
+            animation: map-pulse 2s ease-out infinite;
+        }
+        
+        body { 
+            background: linear-gradient(135deg, var(--bg-body-start) 0%, var(--bg-body-end) 100%); 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
+            color: var(--text-primary); 
+            overflow-x: hidden;
+            min-height: 100vh;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Header */
+        .header { 
+            background: var(--bg-header); 
+            padding: 8px 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid var(--border-accent);
+            flex-wrap: wrap;
+            gap: 8px;
+            transition: background 0.3s ease;
+        }
+
+        [data-theme="light"] .header {
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        }
+        
+        .header-title { 
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+        
+        .dashboard-name {
+            font-size: clamp(14px, 4vw, 18px); 
+            font-weight: 600; 
+            color: var(--accent);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .eero-logo {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+            color: var(--accent);
+        }
+        
+        .header-subtitle {
+            font-size: clamp(9px, 2.5vw, 11px);
+            color: var(--text-secondary);
+        }
+        
+        .header-actions { 
+            display: flex; 
+            gap: 6px; 
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-indicator { 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            padding: 4px 8px; 
+            background: var(--status-bg); 
+            border-radius: 15px; 
+            font-size: clamp(9px, 2vw, 11px);
+        }
+        
+        .status-dot { 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: #4CAF50; 
+        }
+        
+        .header-btn { 
+            padding: 4px 8px; 
+            background: var(--accent-bg); 
+            border: 2px solid var(--accent); 
+            border-radius: 6px; 
+            color: var(--text-primary); 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            font-size: clamp(10px, 2.5vw, 12px);
+            transition: background 0.2s ease;
+        }
+        
+        .header-btn:hover { 
+            background: var(--accent-bg-hover); 
+        }
+
+        .theme-toggle {
+            padding: 4px 8px;
+            background: var(--accent-bg);
+            border: 2px solid var(--accent);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: clamp(10px, 2.5vw, 12px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s ease;
+        }
+        .theme-toggle:hover {
+            background: var(--accent-bg-hover);
+        }
+</style>
+</head>
+<body>
+    <div class="header">
+        <img id="customLogo" src="/api/admin/logo" alt="" style="height:32px;max-width:120px;object-fit:contain;display:none;">
+        <div class="header-title">
+            <div class="dashboard-name">
+                <svg id="defaultLogo" class="eero-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="4" fill="currentColor"/>
+                    <path d="M12 1C5.9 1 1 5.9 1 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                    <path d="M12 5C8.1 5 5 8.1 5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+                eero Business Dashboard
+            </div>
+            <div class="header-subtitle">
+                <span class="version">v2.0.7</span> • 
+                <span>Multi-Network Monitoring</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="lastUpdate">Loading...</span>
+            </div>
+            <button class="header-btn" onclick="refreshData()">
+                <i class="fas fa-sync"></i><span>Refresh</span>
+            </button>
+            <button class="header-btn" onclick="showDevices()">
+                <i class="fas fa-list"></i><span>Devices</span>
+            </button>
+            <button class="header-btn" onclick="showAlerts()" style="position:relative;">
+                <i class="fas fa-bell"></i><span>Alerts</span>
+                <span id="alertBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#F44336;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:16px;text-align:center;">0</span>
+            </button>
+            <canvas id="alertSparkline" width="60" height="20" style="vertical-align:middle;"></canvas>
+            <button class="header-btn" onclick="showAdmin()">
+                <i class="fas fa-cog"></i><span>Admin</span>
+            </button>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                <i id="themeIcon" class="fas fa-sun"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Location Map Container -->
+    <div id="mapContainer" style="height: 300px; margin: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-accent); display: none;">
+        <div id="locationMap" style="height: 100%; width: 100%;"></div>
+    </div>
+    <div id="mapEmptyMessage" style="display: none; text-align: center; padding: 20px; color: var(--text-muted); font-size: 14px;">
+        <i class="fas fa-map-marker-alt"></i> No network locations configured. Add addresses to see them on the map.
+    </div>
+
+    <!-- Network Cards Grid -->
+    <div id="networkCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; padding: 15px;">
+        <!-- Cards will be dynamically inserted here -->
+    </div>
+
+    <!-- Store Activity & Traffic - Full Width -->
+    <div id="storeActivitySection" style="display: none; padding: 0 15px 15px;">
+        <div style="background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid var(--border-accent);">
+            <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 10px;"><i class="fas fa-store"></i> Store Activity & Traffic</div>
+            <div id="storeActivityContent" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div id="chartsSection" style="display: none; padding: 0 15px 15px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <span style="font-size: 13px; color: var(--text-muted);"><i class="fas fa-clock"></i> Time Range:</span>
+            <div id="chartTimeRange" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <button onclick="setChartRange(1)" class="range-btn range-active" data-hours="1" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:var(--accent-bg);">1h</button>
+                <button onclick="setChartRange(3)" class="range-btn" data-hours="3" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:transparent;">3h</button>
+                <button onclick="setChartRange(6)" class="range-btn" data-hours="6" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:transparent;">6h</button>
+                <button onclick="setChartRange(12)" class="range-btn" data-hours="12" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:transparent;">12h</button>
+                <button onclick="setChartRange(24)" class="range-btn" data-hours="24" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:transparent;">24h</button>
+                <button onclick="setChartRange(72)" class="range-btn" data-hours="72" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid var(--accent-border);color:var(--text-primary);background:transparent;">3d</button>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 15px;">
+            <div style="background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid var(--border-accent);">
+                <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 10px;"><i class="fas fa-chart-line"></i> Aggregate Device Count Over Time</div>
+                <div style="position: relative; height: 200px;">
+                    <canvas id="deviceCountChart"></canvas>
+                </div>
+            </div>
+            <div id="heatmapContainer" style="background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid var(--border-accent);">
+                <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 10px;"><i class="fas fa-fire"></i> Peak Usage Heatmap</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights Section -->
+    <div id="insightsSection" style="display: none; padding: 0 15px 15px;">
+        <div style="font-size: 16px; font-weight: 600; color: var(--accent); margin-bottom: 12px;"><i class="fas fa-lightbulb"></i> Insights</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div id="uptimeTimelineContainer" style="background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border-accent); border-radius: 12px; padding: 15px;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 10px;"><i class="fas fa-clock"></i> Uptime Timeline (24h)</div>
+            </div>
+            <div id="comparisonContainer" style="background: var(--card-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border-accent); border-radius: 12px; padding: 15px;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> Cross-Location Comparison</div>
+                <div style="position: relative; height: 250px;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Notice -->
+    <div id="setupNotice" style="display: none; background: rgba(255,193,7,.2); border: 2px solid #ffc107; color: #ffc107; padding: 20px; border-radius: 10px; margin: 20px; text-align: center;">
+        <h3><i class="fas fa-exclamation-triangle"></i> Configuration Required</h3>
+        <p>Please add networks and configure API authentication to start monitoring.</p>
+        <button style="padding: 12px 24px; background: var(--btn-gradient); border: none; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px;" onclick="showAdmin()">Open Admin Panel</button>
+    </div>
+
+    <!-- Devices Modal -->
+    <div id="devicesModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: var(--modal-overlay); overflow: auto; padding: 10px;">
+        <div style="background: var(--modal-bg); border-radius: 15px; padding: 20px; max-width: 600px; margin: 20px auto; max-height: 90vh; overflow-y: auto; border: 2px solid var(--border-accent);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--border-accent);">
+                <h2 style="font-size: 20px; color: var(--accent);">Connected Devices</h2>
+                <button onclick="closeModal('devicesModal')" style="font-size: 28px; cursor: pointer; color: var(--text-primary); background: none; border: none;">&times;</button>
+            </div>
+            <div id="devicesList"></div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="adminModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: var(--modal-overlay); overflow: auto; padding: 10px;">
+        <div style="background: var(--modal-bg); border-radius: 15px; padding: 20px; max-width: 600px; margin: 20px auto; max-height: 90vh; overflow-y: auto; border: 2px solid var(--border-accent);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--border-accent);">
+                <h2 style="font-size: 20px; color: var(--accent);">Admin Panel</h2>
+                <button onclick="closeModal('adminModal')" style="font-size: 28px; cursor: pointer; color: var(--text-primary); background: none; border: none;">&times;</button>
+            </div>
+            <div id="adminInfo"></div>
+            <div id="adminFormContainer"></div>
+            <div id="adminAlerts"></div>
+        </div>
+    </div>
+
+    <!-- Alerts Modal -->
+    <div id="alertsModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: var(--modal-overlay); overflow: auto; padding: 10px;">
+        <div style="background: var(--modal-bg); border-radius: 15px; padding: 20px; max-width: 600px; margin: 20px auto; max-height: 90vh; overflow-y: auto; border: 2px solid var(--border-accent);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid var(--border-accent);">
+                <h2 style="font-size: 20px; color: var(--accent);"><i class="fas fa-bell"></i> Alerts</h2>
+                <button onclick="closeModal('alertsModal')" style="font-size: 28px; cursor: pointer; color: var(--text-primary); background: none; border: none;">&times;</button>
+            </div>
+            <div id="alertsList"></div>
+        </div>
+    </div>
+
+    <!-- Network Detail Full Page -->
+    <div id="networkDetailPage" style="display: none; min-height: 100vh;">
+        <div style="background: var(--bg-header); padding: 8px 15px; display: flex; align-items: center; gap: 12px; border-bottom: 2px solid var(--border-accent);">
+            <button onclick="closeNetworkDetail()" style="padding: 6px 12px; background: var(--accent-bg); border: 2px solid var(--accent); border-radius: 6px; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <h2 id="detailTitle" style="font-size: 18px; color: var(--accent); margin: 0;"><i class="fas fa-network-wired"></i> Network Detail</h2>
+        </div>
+        <div id="networkDetailContent" style="font-size: 13px; padding: 20px; max-width: 1200px; margin: 0 auto;">
+            <div style="text-align:center;padding:40px;color:var(--text-faint);"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------------
+        // Theme Management
+        // ---------------------------------------------------------------
+        function getTheme() {
+            return document.documentElement.getAttribute('data-theme') || 'dark';
+        }
+        function isLight() { return getTheme() === 'light'; }
+        function toggleTheme() {
+            const next = isLight() ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('eero-theme', next);
+            document.getElementById('themeIcon').className = next === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            // Rebuild charts with new colors
+            if (deviceDonutChart) { deviceDonutChart.destroy(); deviceDonutChart = null; }
+            if (deviceCountChart) { deviceCountChart.destroy(); deviceCountChart = null; }
+            if (comparisonChartInstance) { comparisonChartInstance.destroy(); comparisonChartInstance = null; }
+            if (alertSparklineChart) { alertSparklineChart.destroy(); alertSparklineChart = null; }
+            gaugeCharts.forEach(c => c.destroy());
+            gaugeCharts = [];
+            storeActivityCharts.forEach(c => c.destroy());
+            storeActivityCharts = [];
+            updateCharts();
+            // Rebuild cards to pick up new inline colors (also rebuilds insights + sparkline)
+            loadNetworkCards();
+        }
+        // Apply saved theme on load
+        (function() {
+            const saved = localStorage.getItem('eero-theme');
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        })();
+
+        // CSS variable reader for JS inline styles
+        function cv(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // ---------------------------------------------------------------
+        // Dashboard Manager - Multi-Network Card-Based Dashboard
+        // ---------------------------------------------------------------
+        let locationMap = null;
+        let mapMarkers = {};
+        let cardMiniMaps = [];
+        let gaugeCharts = [];
+        let deviceDonutChart = null;
+        let alertSparklineChart = null;
+        let weatherData = {}; // { network_id: { temp_f, description, icon } }
+
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
+            document.getElementById(id).style.alignItems = 'flex-start';
+            document.getElementById(id).style.justifyContent = 'center';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            ['devicesModal', 'adminModal', 'alertsModal'].forEach(id => {
+                if (event.target === document.getElementById(id)) {
+                    closeModal(id);
+                }
+            });
+        };
+
+        function showNetworkDetailPage() {
+            // Hide main dashboard content, show detail page
+            document.getElementById('mapContainer').style.display = 'none';
+            document.getElementById('mapEmptyMessage').style.display = 'none';
+            document.getElementById('networkCardsGrid').style.display = 'none';
+            document.getElementById('storeActivitySection').style.display = 'none';
+            document.getElementById('chartsSection').style.display = 'none';
+            document.getElementById('insightsSection').style.display = 'none';
+            document.getElementById('setupNotice').style.display = 'none';
+            document.querySelector('.header').style.display = 'none';
+            document.getElementById('networkDetailPage').style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function closeNetworkDetail() {
+            if (deviceDonutChart) { deviceDonutChart.destroy(); deviceDonutChart = null; }
+            document.getElementById('networkDetailPage').style.display = 'none';
+            document.querySelector('.header').style.display = 'flex';
+            document.getElementById('networkCardsGrid').style.display = 'grid';
+            document.getElementById('storeActivitySection').style.display = 'block';
+            document.getElementById('insightsSection').style.display = 'block';
+            // Re-trigger data load to restore map/charts visibility
+            loadMapData();
+            updateCharts();
+        }
+
+        function getHealthColor(status) {
+            switch(status) {
+                case 'healthy': return '#4CAF50';
+                case 'degraded': return '#FFC107';
+                case 'offline': return '#F44336';
+                default: return '#868e96';
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = { info: '#4da6ff', error: '#F44336', success: '#4CAF50', warning: '#FFC107' };
+            const toast = document.createElement('div');
+            toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:${colors[type]}22;border:1px solid ${colors[type]};color:${colors[type]};padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;max-width:350px;`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function renderNetworkCard(network) {
+            const healthColor = getHealthColor(network.health_status);
+            const address = network.address && network.address.formatted ? network.address.formatted : '';
+            const siteType = network.site_type || 'store';
+            const siteTypeBadge = siteType === 'office'
+                ? '<span style="font-size:9px;background:rgba(77,166,255,0.15);color:var(--accent);padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:500;">Office</span>'
+                : '';
+            const lat = network.address && network.address.lat;
+            const lng = network.address && network.address.lng;
+            const mapId = `card-map-${network.id}`;
+            const mapBgHtml = lat && lng
+                ? `<div style="position:relative;margin-bottom:10px;">
+                    <div id="${mapId}" style="width:100%;height:120px;border-radius:8px;z-index:1;pointer-events:none;"></div>
+                    ${network.health_status === 'offline' ? `<div id="offline-timer-${network.id}" data-offline-since="${network.offline_since || ''}" style="position:absolute;top:0;left:0;width:100%;height:120px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:2;pointer-events:none;">
+                        <div style="font-size:11px;font-weight:600;color:#F44336;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Network Offline for</div>
+                        <span style="font-family:'Courier New',monospace;font-size:56px;font-weight:700;color:#F44336;text-shadow:0 0 15px rgba(244,67,54,.7);letter-spacing:3px;line-height:1;">00:00:00</span>
+                    </div>` : ''}
+                  </div>`
+                : '';
+
+            return `
+                <div class="network-card" style="background: var(--card-bg); border-radius: 12px; padding: 15px; border: 3px solid ${healthColor}; cursor: pointer;" onclick="showNetworkDetail('${network.id}')">
+                    ${mapBgHtml}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-size: 16px; font-weight: 600; color: var(--accent);">${network.name}${siteTypeBadge}</div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${(() => {
+                                const w = weatherData[network.id];
+                                const lat = network.address && network.address.lat;
+                                const lng = network.address && network.address.lng;
+                                if (w && w.temp_f != null && lat && lng) {
+                                    const wuUrl = `https://www.wunderground.com/forecast/${lat},${lng}`;
+                                    return `<a href="${wuUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;text-decoration:none;" title="${w.description} — View on Weather Underground"><span style="font-size:18px;line-height:1;">${w.icon}</span> ${w.temp_f}°F</a>`;
+                                }
+                                return '';
+                            })()}
+                            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${healthColor};"></div>
+                        </div>
+                    </div>
+                    ${address ? `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;"><i class="fas fa-map-marker-alt"></i> ${address}</div>` : ''}
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.12);border-radius:8px;padding:6px 4px;height:72px;overflow:hidden;cursor:help;" title="Health Score: Weighted average of 4 metrics (25% each): eero node status (${network.eero_online || 0}/${network.eero_count || 0} online), signal strength, 24h uptime (${network.uptime_24h != null ? network.uptime_24h + '%' : 'N/A'}), and bandwidth headroom. 80+ = green, 50-79 = yellow, below 50 = red.">
+                            <div style="position:relative;width:100%;height:42px;"><canvas id="health-gauge-${network.id}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
+                            <span style="font-size:9px;color:var(--text-muted);margin-top:2px;">Health</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.12);border-radius:8px;padding:6px 4px;height:72px;cursor:help;" title="Wired Devices: Number of devices connected via Ethernet cable to an eero node. These devices have a stable, full-speed connection.">
+                            <i class="fas fa-ethernet" style="font-size:15px;color:var(--accent);margin-bottom:3px;"></i>
+                            <span style="font-size:15px;font-weight:700;">${network.wired_devices || 0}</span>
+                            <span style="font-size:9px;color:var(--text-muted);margin-top:1px;">Wired</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.12);border-radius:8px;padding:6px 4px;height:72px;cursor:help;" title="Wireless Devices: Number of devices connected over Wi-Fi (2.4GHz, 5GHz, or 6GHz). Includes phones, tablets, laptops, and IoT devices active in the last 15 minutes.">
+                            <i class="fas fa-wifi" style="font-size:15px;color:var(--accent);margin-bottom:3px;"></i>
+                            <span style="font-size:15px;font-weight:700;">${network.wireless_devices || 0}</span>
+                            <span style="font-size:9px;color:var(--text-muted);margin-top:1px;">Wireless</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.12);border-radius:8px;padding:6px 4px;height:72px;overflow:hidden;cursor:help;" title="Bandwidth Utilization: Estimated percentage of your ISP speed in use. Capacity (${network.bandwidth_capacity_mbps ? Math.round(network.bandwidth_capacity_mbps) + ' Mbps' : 'N/A'}) is from the eero speed test (upload + download). Usage is estimated at ~2.5 Mbps per connected device. Under 60% = green, 60-80% = yellow, over 80% = red.">
+                            ${network.bandwidth_capacity_mbps ? `<div style="position:relative;width:100%;height:42px;"><canvas id="bw-gauge-${network.id}" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>` : `<span style="font-size:15px;font-weight:700;color:var(--text-muted);">N/A</span>`}
+                            <span style="font-size:9px;color:var(--text-muted);margin-top:2px;">Bandwidth</span>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12px;">
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Devices:</span><span>${network.total_devices || 0}</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Status:</span><span style="color: ${healthColor}; text-transform: capitalize;">${network.health_status || 'unknown'}</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Bandwidth:</span><span>${network.bandwidth_utilization != null ? network.bandwidth_utilization + '%' : 'N/A'}</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Uptime:</span><span>${network.uptime_24h != null ? network.uptime_24h + '%' : 'N/A'}</span></div>
+                    </div>
+                    <a href="https://insight.eero.com/networks/${network.id}/" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="display:block;margin-top:10px;text-align:center;font-size:11px;color:var(--accent);text-decoration:none;padding:5px 0;border-top:1px solid var(--border-accent);"><i class="fas fa-external-link-alt"></i> View Network ${network.id} in Insight</a>
+                </div>
+            `;
+        }
+
+        async function showNetworkDetail(networkId) {
+            const content = document.getElementById('networkDetailContent');
+            content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);"><i class="fas fa-spinner fa-spin"></i> Loading network details...</div>';
+            showNetworkDetailPage();
+
+            try {
+                const response = await fetch(`/api/network/${networkId}/detail`);
+                if (!response.ok) throw new Error('Failed to load network detail');
+                const d = await response.json();
+
+                const healthColor = getHealthColor(d.health_status);
+                const addressText = d.address && d.address.formatted ? d.address.formatted : 'No address configured';
+
+                document.getElementById('detailTitle').innerHTML = `<i class="fas fa-network-wired"></i> ${d.name}`;
+
+                let html = '';
+
+                // Map snapshot for detail view
+                const detailLat = d.address && d.address.lat;
+                const detailLng = d.address && d.address.lng;
+                if (detailLat && detailLng) {
+                    html += `<div id="detail-map" style="width:100%;height:180px;border-radius:10px;margin-bottom:12px;z-index:1;"></div>`;
+                }
+
+                html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="width:14px;height:14px;border-radius:50%;background:${healthColor};"></div>
+                    <span style="text-transform:capitalize;color:${healthColor};font-weight:600;">${d.health_status}</span>
+                    <span style="color:var(--text-faint);margin-left:auto;font-size:11px;"><i class="fas fa-map-marker-alt"></i> ${addressText}</span>
+                </div>`;
+
+                // Stats grid
+                html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px;">
+                    ${_detailStat('fa-laptop', 'Total Devices', d.total_devices)}
+                    ${_detailStat('fa-wifi', 'Wireless', d.wireless_devices)}
+                    ${_detailStat('fa-ethernet', 'Wired', d.wired_devices)}
+                    ${_detailStat('fa-tachometer-alt', 'Bandwidth', (d.bandwidth_utilization != null ? d.bandwidth_utilization + '%' : 'N/A'))}
+                    ${_detailStat('fa-arrow-up', 'Uptime 24h', (d.uptime_24h != null ? d.uptime_24h + '%' : 'N/A'))}
+                    ${_detailStat('fa-clock', 'Last Update', d.last_update ? new Date(d.last_update).toLocaleTimeString() : 'N/A')}
+                </div>`;
+
+                // Frequency distribution
+                const freq = d.frequency_distribution || {};
+                const freqTotal = Object.values(freq).reduce((a, b) => a + b, 0) || 1;
+                html += `<div style="margin-bottom:16px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px;">Frequency Distribution</div>
+                    <div style="display:flex;gap:4px;height:24px;border-radius:6px;overflow:hidden;">
+                        ${freq['2.4GHz'] ? `<div style="flex:${freq['2.4GHz']};background:#FFC107;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:600;" title="2.4GHz: ${freq['2.4GHz']}">2.4G (${freq['2.4GHz']})</div>` : ''}
+                        ${freq['5GHz'] ? `<div style="flex:${freq['5GHz']};background:#4da6ff;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:600;" title="5GHz: ${freq['5GHz']}">5G (${freq['5GHz']})</div>` : ''}
+                        ${freq['6GHz'] ? `<div style="flex:${freq['6GHz']};background:#9C27B0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-primary);font-weight:600;" title="6GHz: ${freq['6GHz']}">6G (${freq['6GHz']})</div>` : ''}
+                    </div>
+                </div>`;
+
+                // Incident Timeline (7 days)
+                const alertHistory = d.alert_history || [];
+                html += `<div style="margin-bottom:16px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px;">Incident Timeline (7 days)</div>`;
+                if (alertHistory.length === 0) {
+                    html += `<div style="text-align:center;padding:12px;color:var(--text-dim);font-size:12px;background:var(--stat-bg);border-radius:6px;">No incidents in last 7 days</div>`;
+                } else {
+                    // Sort chronologically (alert_history comes newest-first)
+                    const sortedAlerts = [...alertHistory].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    const now = new Date();
+                    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    const totalMs = now.getTime() - sevenDaysAgo.getTime();
+
+                    // Build segments: green gaps between alerts, colored alert segments
+                    let segments = [];
+                    let cursor = sevenDaysAgo.getTime();
+
+                    sortedAlerts.forEach(alert => {
+                        const alertTime = new Date(alert.created_at).getTime();
+                        // Clamp to window
+                        const clampedTime = Math.max(alertTime, sevenDaysAgo.getTime());
+                        if (clampedTime > cursor) {
+                            // Green gap before this alert
+                            segments.push({ type: 'normal', start: cursor, end: clampedTime });
+                        }
+                        // Alert segment — minimum 2% width for visibility
+                        const minSegMs = totalMs * 0.02;
+                        const segEnd = Math.min(clampedTime + minSegMs, now.getTime());
+                        segments.push({
+                            type: alert.alert_type,
+                            start: clampedTime,
+                            end: segEnd,
+                            message: alert.message,
+                            timestamp: alert.created_at
+                        });
+                        cursor = segEnd;
+                    });
+
+                    // Fill remaining time with green
+                    if (cursor < now.getTime()) {
+                        segments.push({ type: 'normal', start: cursor, end: now.getTime() });
+                    }
+
+                    const getIncidentColor = (type) => {
+                        if (type === 'offline') return '#F44336';
+                        if (type === 'degraded' || type === 'bandwidth') return '#FFC107';
+                        return '#4CAF50';
+                    };
+
+                    html += `<div style="display:flex;height:24px;border-radius:6px;overflow:hidden;">`;
+                    segments.forEach(seg => {
+                        const duration = seg.end - seg.start;
+                        if (duration <= 0) return;
+                        const color = getIncidentColor(seg.type);
+                        let tooltip = '';
+                        if (seg.type === 'normal') {
+                            tooltip = 'Normal operation';
+                        } else {
+                            const ts = seg.timestamp ? new Date(seg.timestamp).toLocaleString() : '';
+                            tooltip = `${seg.type.charAt(0).toUpperCase() + seg.type.slice(1)} — ${ts}${seg.message ? '\\n' + seg.message : ''}`;
+                        }
+                        html += `<div style="flex-grow:${duration};background:${color};" title="${tooltip}"></div>`;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+
+                // OS distribution — donut chart
+                const os = d.device_os || {};
+                const osEntries = Object.entries(os).filter(([k, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+                if (osEntries.length > 0) {
+                    const donutColorMap = { iOS: '#007AFF', Android: '#3DDC84', Windows: '#00BCF2', Amazon: '#FF9900', Gaming: '#9C27B0', Streaming: '#E91E63', Other: '#868e96' };
+                    html += `<div style="margin-bottom:16px;">
+                        <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px;">Device Types</div>
+                        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                            <div style="width:160px;height:160px;flex-shrink:0;">
+                                <canvas id="deviceDonutCanvas"></canvas>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:4px;">
+                                ${osEntries.map(([name, count]) => {
+                                    const c = donutColorMap[name] || donutColorMap.Other;
+                                    return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                        <span style="width:10px;height:10px;border-radius:2px;background:${c};display:inline-block;"></span>
+                                        <span style="color:var(--text-primary);">${name}</span>
+                                        <span style="color:var(--text-faint);">${count}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                // eero Nodes section
+                if (d.eero_nodes && d.eero_nodes.length > 0) {
+                    html += `<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:10px;margin-top:8px;"><i class="fas fa-broadcast-tower"></i> eero Devices (${d.eero_nodes.length})</div>`;
+                    d.eero_nodes.forEach(node => {
+                        const nodeColor = node.status === 'online' ? '#4CAF50' : '#F44336';
+                        const gwBadge = node.is_gateway ? '<span style="background:var(--accent);color:var(--text-primary);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;margin-left:6px;">GATEWAY</span>' : '';
+                        let meshBars = '';
+                        if (node.mesh_quality != null) {
+                            const mq = node.mesh_quality;
+                            const barColor = mq >= 4 ? '#4CAF50' : mq >= 2 ? '#FFC107' : '#F44336';
+                            let barsHtml = '';
+                            for (let i = 1; i <= 5; i++) {
+                                const h = i * 4;
+                                const bg = i <= mq ? barColor : 'var(--text-dim)';
+                                barsHtml += `<span style="display:inline-block;width:3px;height:${h}px;background:${bg};border-radius:1px;"></span>`;
+                            }
+                            meshBars = `<span style="display:inline-flex;align-items:flex-end;gap:1px;margin-left:8px;" title="Mesh quality: ${mq}/5">${barsHtml}</span>`;
+                        }
+
+                        html += `<div style="background:var(--card-bg-alt);border-radius:10px;padding:12px;margin-bottom:10px;border-left:4px solid ${nodeColor};">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                                <div style="width:10px;height:10px;border-radius:50%;background:${nodeColor};"></div>
+                                <span style="font-weight:600;color:var(--text-primary);">${node.name}</span>${gwBadge}${meshBars}
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+                                <div>Model: <span style="color:var(--text-primary);">${node.model}</span></div>
+                                <div>IP: <span style="color:var(--text-primary);">${node.ip}</span></div>
+                                <div>Serial: <span style="color:var(--text-primary);">${node.serial}</span></div>
+                                <div>Status: <span style="color:${nodeColor};">${node.status}</span></div>${node.os_version ? `
+                                <div>Firmware: <span style="color:${d.firmware_consistent ? '#4CAF50' : '#FFC107'};">${node.os_version}</span></div>` : ''}
+                            </div>`;
+
+                        if (node.clients && node.clients.length > 0) {
+                            html += `<div style="font-size:11px;color:var(--accent);margin-bottom:6px;font-weight:600;">Connected Clients (${node.clients.length}):</div>`;
+                            html += _renderDeviceTable(node.clients);
+                        } else {
+                            html += `<div style="font-size:11px;color:var(--text-dim);padding:6px 0;">No clients connected to this node</div>`;
+                        }
+                        html += `</div>`;
+                    });
+
+                    // Unmatched devices
+                    if (d.unmatched_devices && d.unmatched_devices.length > 0) {
+                        html += `<div style="font-size:13px;font-weight:600;color:#FFC107;margin:12px 0 8px;"><i class="fas fa-question-circle"></i> Other Connected Devices (${d.unmatched_devices.length})</div>`;
+                        html += _renderDeviceTable(d.unmatched_devices);
+                    }
+                } else {
+                    html += `<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:10px;margin-top:8px;"><i class="fas fa-laptop"></i> Connected Devices (${(d.all_devices || []).length})</div>`;
+                    if (d.all_devices && d.all_devices.length > 0) {
+                        html += _renderDeviceTable(d.all_devices);
+                    } else {
+                        html += `<div style="text-align:center;padding:20px;color:var(--text-dim);">No devices connected</div>`;
+                    }
+                }
+
+                // Network Activity Log section
+                html += `<div style="margin-top:20px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div style="font-size:14px;font-weight:600;color:var(--accent);"><i class="fas fa-broadcast-tower"></i> eero Network Activity</div>
+                        <button onclick="refreshNetworkLogs('${d.id}')" style="padding:4px 10px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                    <div id="networkLogSummary" style="background:var(--card-bg-alt);border-radius:8px;padding:12px;margin-bottom:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                        <i class="fas fa-spinner fa-spin"></i> Analyzing logs...
+                    </div>
+                    <div id="networkLogViewer" style="background:var(--log-bg);border-radius:8px;padding:10px;max-height:250px;overflow-y:auto;font-family:'Courier New',monospace;font-size:10px;line-height:1.4;">
+                        <span style="color:var(--text-dim);">Loading...</span>
+                    </div>
+                </div>`;
+
+                content.innerHTML = html;
+
+                // Initialize device type donut chart
+                if (deviceDonutChart) { deviceDonutChart.destroy(); deviceDonutChart = null; }
+                const donutCanvas = document.getElementById('deviceDonutCanvas');
+                if (donutCanvas && osEntries.length > 0) {
+                    const donutColorMap = { iOS: '#007AFF', Android: '#3DDC84', Windows: '#00BCF2', Amazon: '#FF9900', Gaming: '#9C27B0', Streaming: '#E91E63', Other: '#868e96' };
+                    deviceDonutChart = new Chart(donutCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: osEntries.map(([name]) => name),
+                            datasets: [{
+                                data: osEntries.map(([, count]) => count),
+                                backgroundColor: osEntries.map(([name]) => donutColorMap[name] || donutColorMap.Other),
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            cutout: '55%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(ctx) {
+                                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                            const pct = total > 0 ? Math.round(ctx.raw / total * 100) : 0;
+                                            return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Load network-specific logs
+                loadNetworkLogs('${d.id}');
+
+                // Initialize detail map if coordinates available
+                if (detailLat && detailLng) {
+                    const detailMapEl = document.getElementById('detail-map');
+                    if (detailMapEl) {
+                        const dm = L.map(detailMapEl, {
+                            zoomControl: false,
+                            attributionControl: false,
+                        }).setView([detailLat, detailLng], 17);
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(dm);
+                        const detailPulseIcon = L.divIcon({
+                            className: '',
+                            html: `<div class="pulse-marker" style="background:${healthColor};"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+                        L.marker([detailLat, detailLng], { icon: detailPulseIcon, interactive: false }).addTo(dm);
+                        L.circleMarker([detailLat, detailLng], {
+                            radius: 14, fillColor: healthColor, color: '#fff', weight: 3, fillOpacity: 0.9
+                        }).addTo(dm);
+                        // Leaflet needs invalidateSize after container becomes visible
+                        setTimeout(() => dm.invalidateSize(), 200);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading network detail:', error);
+                content.innerHTML = `<div style="text-align:center;padding:40px;color:#F44336;"><i class="fas fa-exclamation-triangle"></i> Failed to load network details</div>`;
+            }
+        }
+
+        function _detailStat(icon, label, value) {
+            return `<div style="background:var(--stat-bg);padding:10px;border-radius:8px;border:1px solid var(--border-accent);text-align:center;">
+                <div style="font-size:18px;color:var(--accent);margin-bottom:4px;"><i class="fas ${icon}"></i></div>
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${value}</div>
+                <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">${label}</div>
+            </div>`;
+        }
+
+        function _renderDeviceTable(devices) {
+            if (!devices || devices.length === 0) return '';
+            return `<div style="display:grid;gap:6px;">
+                ${devices.map(dev => {
+                    const sigColor = dev.signal_quality === 'Excellent' || dev.signal_quality === 'Very Good' ? '#4CAF50'
+                        : dev.signal_quality === 'Good' ? '#8BC34A'
+                        : dev.signal_quality === 'Fair' ? '#FFC107'
+                        : dev.signal_quality === 'Poor' ? '#F44336'
+                        : 'var(--text-faint)';
+                    const freqColor = dev.frequency_band === '5GHz' ? '#4da6ff'
+                        : dev.frequency_band === '2.4GHz' ? '#FFC107'
+                        : dev.frequency_band === '6GHz' ? '#9C27B0'
+                        : 'var(--text-faint)';
+                    return `<div style="background:var(--device-bg);padding:8px 10px;border-radius:6px;border:1px solid var(--border-accent);display:grid;grid-template-columns:1fr auto;gap:4px;align-items:center;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:var(--text-primary);">${dev.name}</div>
+                            <div style="font-size:10px;color:var(--text-faint);">${dev.manufacturer || ''} • ${dev.device_os || ''} • ${dev.ip || ''}</div>
+                            <div style="font-size:10px;color:var(--text-dim);">MAC: ${dev.mac || 'N/A'}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:11px;color:${freqColor};font-weight:600;">${dev.frequency || 'N/A'}</div>
+                            <div style="font-size:10px;color:${sigColor};">${dev.signal_quality || ''} ${dev.signal_avg_dbm && dev.signal_avg_dbm !== 'N/A' ? dev.signal_avg_dbm : ''}</div>
+                            <div style="font-size:10px;color:var(--text-dim);">${dev.connection_type || ''}</div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        async function loadNetworkCards() {
+            try {
+                const [response, weatherResp] = await Promise.all([
+                    fetch('/api/network-stats'),
+                    fetch('/api/weather').catch(() => ({ ok: false }))
+                ]);
+                const data = await response.json();
+
+                if (weatherResp.ok) {
+                    try { weatherData = await weatherResp.json(); } catch (e) { /* ignore */ }
+                }
+
+                const grid = document.getElementById('networkCardsGrid');
+                const setupNotice = document.getElementById('setupNotice');
+
+                if (!data.networks || data.networks.length === 0) {
+                    grid.innerHTML = '';
+                    setupNotice.style.display = 'block';
+                    document.getElementById('insightsSection').style.display = 'none';
+                    return;
+                }
+
+                setupNotice.style.display = 'none';
+
+                // Destroy previous gauge charts to prevent memory leaks
+                gaugeCharts.forEach(c => c.destroy());
+                gaugeCharts = [];
+
+                // Sort: stores first, then offices
+                const sorted = [...data.networks].sort((a, b) => {
+                    const aType = a.site_type || 'store';
+                    const bType = b.site_type || 'store';
+                    if (aType === bType) return 0;
+                    return aType === 'store' ? -1 : 1;
+                });
+
+                grid.innerHTML = sorted.map(renderNetworkCard).join('');
+
+                // Initialize gauge charts now that canvas elements are in the DOM
+                sorted.forEach(network => {
+                    const healthScore = computeHealthScore(network);
+                    const healthChart = createHalfDoughnut(`health-gauge-${network.id}`, healthScore, 100, getHealthGaugeColor, '100');
+                    if (healthChart) gaugeCharts.push(healthChart);
+
+                    if (network.bandwidth_capacity_mbps) {
+                        const bwVal = network.bandwidth_utilization != null ? network.bandwidth_utilization : 0;
+                        const capLabel = Math.round(network.bandwidth_capacity_mbps) + ' Mbps';
+                        const bwChart = createHalfDoughnut(`bw-gauge-${network.id}`, bwVal, 100, getBandwidthGaugeColor, capLabel, true);
+                        if (bwChart) gaugeCharts.push(bwChart);
+                    }
+                });
+
+                // Destroy previous mini maps to prevent memory leaks
+                cardMiniMaps.forEach(m => m.remove());
+                cardMiniMaps = [];
+
+                // Initialize mini Leaflet maps on each card
+                data.networks.forEach(network => {
+                    const lat = network.address && network.address.lat;
+                    const lng = network.address && network.address.lng;
+                    if (!lat || !lng) return;
+                    const mapEl = document.getElementById(`card-map-${network.id}`);
+                    if (!mapEl) return;
+                    const miniMap = L.map(mapEl, {
+                        zoomControl: false,
+                        attributionControl: false,
+                        dragging: false,
+                        scrollWheelZoom: false,
+                        doubleClickZoom: false,
+                        touchZoom: false,
+                        keyboard: false,
+                    }).setView([lat, lng], 16);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(miniMap);
+                    const color = getHealthColor(network.health_status);
+                    const pulseIcon = L.divIcon({
+                        className: '',
+                        html: `<div class="pulse-marker" style="background:${color};"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+                    L.marker([lat, lng], { icon: pulseIcon, interactive: false }).addTo(miniMap);
+                    L.circleMarker([lat, lng], {
+                        radius: 12, fillColor: color, color: '#fff', weight: 3, fillOpacity: 0.9
+                    }).addTo(miniMap);
+                    cardMiniMaps.push(miniMap);
+                });
+
+                // Load insights section and alert sparkline after cards are rendered
+                loadInsightsSection();
+                loadAlertSparkline();
+            } catch (error) {
+                console.error('Error loading network cards:', error);
+                showToast('Connection error — using cached data', 'warning');
+            }
+        }
+
+        async function loadMapData() {
+            try {
+                const response = await fetch('/api/map-data');
+                const data = await response.json();
+                const locations = data.locations || [];
+
+                const mapContainer = document.getElementById('mapContainer');
+                const emptyMsg = document.getElementById('mapEmptyMessage');
+
+                if (locations.length === 0) {
+                    mapContainer.style.display = 'none';
+                    emptyMsg.style.display = 'block';
+                    return;
+                }
+
+                mapContainer.style.display = 'block';
+                emptyMsg.style.display = 'none';
+
+                if (!locationMap) {
+                    locationMap = L.map('locationMap').setView([39.8283, -98.5795], 4);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+                    }).addTo(locationMap);
+                }
+
+                // Clear existing markers
+                Object.values(mapMarkers).forEach(m => locationMap.removeLayer(m));
+                mapMarkers = {};
+
+                const bounds = [];
+                locations.forEach(loc => {
+                    const color = getHealthColor(loc.health_status);
+                    // Pulsing glow marker behind the solid dot
+                    const pulseIcon = L.divIcon({
+                        className: '',
+                        html: `<div class="pulse-marker" style="background:${color};"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+                    L.marker([loc.lat, loc.lng], { icon: pulseIcon, interactive: false }).addTo(locationMap);
+                    // Glow ring behind marker for visibility
+                    L.circleMarker([loc.lat, loc.lng], {
+                        radius: 22, fillColor: color, color: color, weight: 0, fillOpacity: 0.2
+                    }).addTo(locationMap);
+                    const marker = L.circleMarker([loc.lat, loc.lng], {
+                        radius: 14,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 3,
+                        fillOpacity: 0.9
+                    }).addTo(locationMap);
+
+                    marker.bindPopup(`
+                        <strong>${loc.name}</strong><br>
+                        ${loc.address}<br>
+                        Status: <span style="color:${color}">${loc.health_status}</span><br>
+                        Devices: ${loc.total_devices}
+                    `);
+
+                    mapMarkers[loc.network_id] = marker;
+                    bounds.push([loc.lat, loc.lng]);
+                });
+
+                if (bounds.length > 0) {
+                    locationMap.fitBounds(bounds, { padding: [30, 30] });
+                }
+            } catch (error) {
+                console.error('Error loading map data:', error);
+            }
+        }
+
+        async function loadInsightsSection() {
+            const section = document.getElementById('insightsSection');
+            const grid = document.getElementById('networkCardsGrid');
+            // Hide insights if no network cards are rendered
+            if (!grid || grid.children.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'block';
+            await Promise.all([
+                loadUptimeTimeline(),
+                loadComparisonChart()
+            ]);
+        }
+
+        async function loadHeatmap() {
+            try {
+                const response = await fetch('/api/insights/heatmap');
+                const data = await response.json();
+                const container = document.getElementById('heatmapContainer');
+                if (!container) return;
+
+                // Remove any previous heatmap grid (keep the title)
+                const oldGrid = container.querySelector('.heatmap-grid');
+                if (oldGrid) oldGrid.remove();
+                const oldMsg = container.querySelector('.heatmap-empty');
+                if (oldMsg) oldMsg.remove();
+
+                const cells = data.cells || [];
+                const maxVal = data.max_value || 0;
+                const days = data.days || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+                // No data case
+                if (maxVal === 0) {
+                    const msg = document.createElement('div');
+                    msg.className = 'heatmap-empty';
+                    msg.style.cssText = 'text-align:center;padding:20px;color:var(--text-muted);font-size:13px;';
+                    msg.textContent = 'No data available';
+                    container.appendChild(msg);
+                    return;
+                }
+
+                const grid = document.createElement('div');
+                grid.className = 'heatmap-grid';
+                grid.style.cssText = 'display:grid;grid-template-columns:40px repeat(24, 1fr);gap:2px;';
+
+                // Header row: empty corner + hour labels
+                const corner = document.createElement('div');
+                grid.appendChild(corner);
+                for (let h = 0; h < 24; h++) {
+                    const hourLabel = document.createElement('div');
+                    hourLabel.style.cssText = 'text-align:center;font-size:9px;color:var(--text-muted);';
+                    hourLabel.textContent = h % 2 === 0 ? h : '';
+                    grid.appendChild(hourLabel);
+                }
+
+                // Data rows: day label + 24 cells
+                for (let d = 0; d < 7; d++) {
+                    const dayLabel = document.createElement('div');
+                    dayLabel.style.cssText = 'font-size:11px;color:var(--text-secondary);display:flex;align-items:center;';
+                    dayLabel.textContent = days[d];
+                    grid.appendChild(dayLabel);
+
+                    const row = cells[d] || new Array(24).fill(0);
+                    for (let h = 0; h < 24; h++) {
+                        const val = row[h] || 0;
+                        const opacity = val / maxVal;
+                        const cell = document.createElement('div');
+                        cell.style.cssText = `min-height:20px;border-radius:2px;background:rgba(77,166,255,${opacity});transition:filter 0.15s ease;cursor:default;`;
+                        cell.title = `${days[d]} ${String(h).padStart(2,'0')}:00 — avg ${Math.round(val * 10) / 10} devices`;
+                        cell.addEventListener('mouseenter', function() { this.style.filter = 'brightness(1.3)'; });
+                        cell.addEventListener('mouseleave', function() { this.style.filter = ''; });
+                        grid.appendChild(cell);
+                    }
+                }
+
+                container.appendChild(grid);
+            } catch (error) {
+                console.error('Error loading heatmap:', error);
+            }
+        }
+
+        async function loadComparisonChart() {
+            try {
+                const response = await fetch('/api/network-stats');
+                const data = await response.json();
+                const networks = (data.networks || []).filter(n => (n.site_type || 'store') !== 'office');
+                if (networks.length === 0) return;
+
+                const labels = networks.map(n => n.name);
+                const deviceCounts = networks.map(n => n.total_devices || 0);
+                const signalPcts = networks.map(n => {
+                    const arr = n.signal_strength_avg || [];
+                    if (arr.length === 0) return 0;
+                    const dbm = arr[arr.length - 1].value;
+                    return Math.max(0, Math.min(100, ((dbm + 90) / 60) * 100));
+                });
+                const uptimePcts = networks.map(n => n.uptime_24h || 0);
+                const bandwidthPcts = networks.map(n => n.bandwidth_utilization || 0);
+
+                // Destroy previous instance
+                if (comparisonChartInstance) {
+                    comparisonChartInstance.destroy();
+                    comparisonChartInstance = null;
+                }
+
+                const canvas = document.getElementById('comparisonChart');
+                if (!canvas) return;
+
+                comparisonChartInstance = new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'Device Count', data: deviceCounts, backgroundColor: '#4da6ff' },
+                            { label: 'Signal %', data: signalPcts, backgroundColor: '#4CAF50' },
+                            { label: 'Uptime %', data: uptimePcts, backgroundColor: '#009688' },
+                            { label: 'Bandwidth %', data: bandwidthPcts, backgroundColor: '#FF9800' }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { color: cv('--chart-text'), font: { size: 11 } }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: cv('--grid-line') },
+                                ticks: { color: cv('--chart-tick'), font: { size: 11 } }
+                            },
+                            y: {
+                                grid: { color: cv('--grid-line') },
+                                ticks: { color: cv('--chart-tick'), font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading comparison chart:', error);
+            }
+        }
+
+        async function loadUptimeTimeline() {
+            try {
+                const response = await fetch('/api/insights/uptime-timeline');
+                const data = await response.json();
+                const container = document.getElementById('uptimeTimelineContainer');
+                if (!container) return;
+
+                // Clean up previous timeline content (keep the title)
+                while (container.children.length > 1) {
+                    container.removeChild(container.lastChild);
+                }
+
+                const networks = data.networks || {};
+                const networkIds = Object.keys(networks);
+
+                if (networkIds.length === 0) {
+                    const msg = document.createElement('div');
+                    msg.style.cssText = 'text-align:center; color:var(--text-muted); font-size:12px; padding:10px 0;';
+                    msg.textContent = 'No data available';
+                    container.appendChild(msg);
+                    return;
+                }
+
+                // Calculate the 24h window ending at now
+                const now = new Date();
+                const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                const totalMs = now - windowStart;
+
+                // Build network rows
+                networkIds.forEach(id => {
+                    const network = networks[id];
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; margin-bottom:4px;';
+
+                    const label = document.createElement('div');
+                    label.style.cssText = 'width:80px; min-width:80px; font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+                    label.textContent = network.name;
+                    row.appendChild(label);
+
+                    const bar = document.createElement('div');
+                    bar.style.cssText = 'position:relative; flex:1; height:18px; border-radius:3px; overflow:hidden; background:var(--divider);';
+
+                    const segments = network.segments || [];
+                    segments.forEach(seg => {
+                        const segStart = Math.max(new Date(seg.start).getTime(), windowStart.getTime());
+                        const segEnd = Math.min(new Date(seg.end).getTime(), now.getTime());
+                        if (segEnd <= segStart) return;
+
+                        const leftPct = ((segStart - windowStart.getTime()) / totalMs) * 100;
+                        const widthPct = ((segEnd - segStart) / totalMs) * 100;
+
+                        const segDiv = document.createElement('div');
+                        segDiv.style.cssText = `position:absolute;top:0;height:100%;left:${leftPct}%;width:${widthPct}%;background:${seg.status === 'online' ? '#4CAF50' : '#F44336'};`;
+
+                        const startTime = new Date(segStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const endTime = new Date(segEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        segDiv.title = `${seg.status.charAt(0).toUpperCase() + seg.status.slice(1)} ${startTime} – ${endTime}`;
+
+                        bar.appendChild(segDiv);
+                    });
+
+                    row.appendChild(bar);
+                    container.appendChild(row);
+                });
+
+                // Time axis with 30-minute tick marks
+                const axisRow = document.createElement('div');
+                axisRow.style.cssText = 'display:flex; align-items:flex-start; margin-top:2px;';
+
+                // Spacer matching the label width
+                const spacer = document.createElement('div');
+                spacer.style.cssText = 'width:80px; min-width:80px;';
+                axisRow.appendChild(spacer);
+
+                const axis = document.createElement('div');
+                axis.style.cssText = 'position:relative; flex:1; height:20px; border-top:1px solid var(--divider);';
+
+                // Generate 30-min ticks from windowStart to now
+                // Round windowStart up to next 30-min boundary
+                const firstTick = new Date(windowStart);
+                const mins = firstTick.getMinutes();
+                const nextHalf = mins < 30 ? 30 : 60;
+                firstTick.setMinutes(nextHalf, 0, 0);
+
+                for (let t = firstTick.getTime(); t <= now.getTime(); t += 30 * 60 * 1000) {
+                    const pct = ((t - windowStart.getTime()) / totalMs) * 100;
+                    const tickDate = new Date(t);
+                    const isHour = tickDate.getMinutes() === 0;
+
+                    // Tick mark
+                    const tick = document.createElement('div');
+                    tick.style.cssText = `position:absolute;left:${pct}%;top:0;width:1px;height:${isHour ? 6 : 4}px;background:var(--text-dim);`;
+                    axis.appendChild(tick);
+
+                    // Label every 3 hours to avoid crowding, skip if too close to "Now" label
+                    if (isHour && tickDate.getHours() % 3 === 0 && pct < 92) {
+                        const lbl = document.createElement('div');
+                        lbl.style.cssText = `position:absolute;left:${pct}%;top:7px;transform:translateX(-50%);font-size:9px;color:var(--text-muted);white-space:nowrap;`;
+                        lbl.textContent = tickDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        axis.appendChild(lbl);
+                    }
+                }
+
+                // "Now" label on the far right
+                const nowLabel = document.createElement('div');
+                nowLabel.style.cssText = 'position:absolute;right:0;top:7px;font-size:9px;color:var(--accent);font-weight:600;white-space:nowrap;';
+                nowLabel.textContent = 'Now ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                axis.appendChild(nowLabel);
+
+                // "Now" tick line
+                const nowTick = document.createElement('div');
+                nowTick.style.cssText = 'position:absolute;right:0;top:0;width:1px;height:6px;background:var(--accent);';
+                axis.appendChild(nowTick);
+
+                axisRow.appendChild(axis);
+                container.appendChild(axisRow);
+
+                // Legend
+                const legend = document.createElement('div');
+                legend.style.cssText = 'display:flex;gap:12px;margin-top:6px;justify-content:flex-end;';
+                legend.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);">
+                        <div style="width:10px;height:10px;border-radius:2px;background:#4CAF50;"></div> Online
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);">
+                        <div style="width:10px;height:10px;border-radius:2px;background:#F44336;"></div> Offline
+                    </div>`;
+                container.appendChild(legend);
+            } catch (error) {
+                console.error('Error loading uptime timeline:', error);
+            }
+        }
+
+        async function loadAlertSparkline() {
+            try {
+                const response = await fetch('/api/alerts/trend');
+                const data = await response.json();
+                if (!data.counts || data.counts.length === 0) return;
+
+                const canvas = document.getElementById('alertSparkline');
+                if (!canvas) return;
+
+                if (alertSparklineChart) {
+                    alertSparklineChart.destroy();
+                    alertSparklineChart = null;
+                }
+
+                alertSparklineChart = new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: data.counts.map((_, i) => i),
+                        datasets: [{
+                            data: data.counts,
+                            borderColor: cv('--accent'),
+                            borderWidth: 1.5,
+                            fill: false,
+                            pointRadius: 0,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        scales: {
+                            x: { display: false },
+                            y: { display: false }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading alert sparkline:', error);
+            }
+        }
+
+        async function refreshData() {
+            document.getElementById('lastUpdate').textContent = 'Refreshing...';
+            try { await fetch('/api/refresh', { method: 'POST' }); } catch (e) { /* ignore */ }
+            await loadNetworkCards();
+            await loadMapData();
+            await updateAlertBadge();
+            await updateCharts();
+            document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+        }
+
+        async function showDevices() {
+            try {
+                const response = await fetch('/api/devices');
+                const data = await response.json();
+                const container = document.getElementById('devicesList');
+
+                if (!data.devices || data.devices.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:var(--text-muted);">No devices found</p>';
+                } else {
+                    container.innerHTML = data.devices.map(device => `
+                        <div style="background: var(--card-bg-alt); padding: 12px; border-radius: 10px; border: 1px solid var(--border-accent); margin-bottom: 10px;">
+                            <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 6px;">${device.name}
+                                <span style="font-size: 11px; color: var(--text-faint);">[${device.network_name}]</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 12px;">
+                                <div><span style="color:var(--text-muted)">IP:</span> ${device.ip}</div>
+                                <div><span style="color:var(--text-muted)">MAC:</span> ${device.mac}</div>
+                                <div><span style="color:var(--text-muted)">Type:</span> ${device.device_os}</div>
+                                <div><span style="color:var(--text-muted)">Connection:</span> ${device.connection_type}</div>
+                                <div><span style="color:var(--text-muted)">Signal:</span> ${device.signal_quality}</div>
+                                <div><span style="color:var(--text-muted)">Frequency:</span> ${device.frequency}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                openModal('devicesModal');
+            } catch (error) {
+                console.error('Error loading devices:', error);
+            }
+        }
+
+        async function showAdmin() {
+            try {
+                const response = await fetch('/api/version');
+                const data = await response.json();
+                document.getElementById('adminInfo').innerHTML = `
+                    <div style="background: var(--card-bg-alt); padding: 12px; border-radius: 10px; margin-bottom: 15px; font-size: 12px;">
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--divider);"><span style="color:var(--text-secondary)">Version:</span><span>${data.version}</span></div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--divider);"><span style="color:var(--text-secondary)">Networks:</span><span>${data.networks_count} configured</span></div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--divider);"><span style="color:var(--text-secondary)">Environment:</span><span>${data.environment}</span></div>
+                        <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-secondary)">Timezone:</span><span>${data.timezone}</span></div>
+                    </div>
+                `;
+                document.getElementById('adminFormContainer').innerHTML = `
+                    <div style="display: grid; gap: 10px;">
+                        <button onclick="showNetworksManager()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-network-wired"></i> Manage Networks
+                        </button>
+                        <button onclick="showAddNetworkForm()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-plus-circle"></i> Add Network
+                        </button>
+                        <button onclick="showTimezoneForm()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-clock"></i> Timezone Settings
+                        </button>
+                        <button onclick="showLogoUpload()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-image"></i> Dashboard Logo
+                        </button>
+                        <button onclick="showSystemLogs()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-terminal"></i> System Logs
+                        </button>
+                        <button onclick="window.location='/api/reports/csv'" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-file-csv"></i> Export CSV Report
+                        </button>
+                        <button onclick="window.location='/api/reports/pdf'" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-file-pdf"></i> Export PDF Report
+                        </button>
+                        <button onclick="showReportCard()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-graduation-cap"></i> Network Report Card
+                        </button>
+                        <button onclick="showTomTomSettings()" style="padding:12px;background:var(--accent-bg);border:2px solid var(--accent);border-radius:10px;color:var(--text-primary);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-car"></i> Traffic API Key (TomTom)
+                        </button>
+                    </div>
+                `;
+                openModal('adminModal');
+            } catch (error) {
+                console.error('Error loading admin info:', error);
+            }
+        }
+
+        async function showReportCard() {
+            const container = document.getElementById('adminFormContainer');
+            container.innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div style="font-size:16px;color:var(--accent);font-weight:600;"><i class="fas fa-graduation-cap"></i> Network Report Card</div>
+                        <button onclick="showAdmin()" style="padding:6px 12px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:12px;">Back</button>
+                    </div>
+                    <div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading report card...</div>
+                </div>
+            `;
+            try {
+                const response = await fetch('/api/reports/scorecard');
+                const data = await response.json();
+                if (data.error) {
+                    container.innerHTML = `
+                        <div style="margin-top:15px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                                <div style="font-size:16px;color:var(--accent);font-weight:600;"><i class="fas fa-graduation-cap"></i> Network Report Card</div>
+                                <button onclick="showAdmin()" style="padding:6px 12px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:12px;">Back</button>
+                            </div>
+                            <div style="padding:12px;background:rgba(244,67,54,.15);border:1px solid #F44336;border-radius:8px;color:#F44336;font-size:13px;">Error loading report card: ${data.error}</div>
+                        </div>
+                    `;
+                    return;
+                }
+                const networks = data.networks || [];
+                const gradeColors = { 'A': '#4CAF50', 'B': '#4da6ff', 'C': '#FFC107', 'D': '#FF9800', 'F': '#F44336', 'N/A': '#868e96' };
+                const cardsHtml = networks.map(net => {
+                    const gradeColor = gradeColors[net.grade] || '#868e96';
+                    if (net.grade === 'N/A') {
+                        return `
+                            <div style="background:var(--card-bg-alt);border-radius:10px;padding:16px;margin-bottom:10px;border:1px solid var(--border-accent);display:flex;align-items:center;gap:16px;">
+                                <div style="min-width:80px;text-align:center;">
+                                    <div style="font-size:48px;font-weight:700;color:${gradeColor};line-height:1;">N/A</div>
+                                </div>
+                                <div style="flex:1;">
+                                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">${net.name}</div>
+                                    <div style="font-size:12px;color:var(--text-muted);">${net.message || 'Insufficient data'}</div>
+                                    <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Data: ${typeof net.data_days === 'number' ? net.data_days.toFixed(1) : '0'} days (need 1+ day)</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    const bd = net.breakdown || {};
+                    const metrics = [
+                        { label: 'Uptime', score: bd.uptime?.score ?? 0, weight: bd.uptime?.weight ?? 0.4 },
+                        { label: 'Signal', score: bd.signal?.score ?? 0, weight: bd.signal?.weight ?? 0.25 },
+                        { label: 'Incidents', score: bd.incidents?.score ?? 0, weight: bd.incidents?.weight ?? 0.2 },
+                        { label: 'Bandwidth', score: bd.bandwidth?.score ?? 0, weight: bd.bandwidth?.weight ?? 0.15 }
+                    ];
+                    const barsHtml = metrics.map(m => {
+                        const barColor = m.score >= 80 ? '#4CAF50' : m.score >= 50 ? '#FFC107' : '#F44336';
+                        return `
+                            <div style="margin-bottom:6px;">
+                                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">
+                                    <span style="color:var(--text-secondary);">${m.label} (${Math.round(m.weight * 100)}%)</span>
+                                    <span style="color:var(--text-primary);">${Math.round(m.score)}</span>
+                                </div>
+                                <div style="height:8px;background:var(--stat-bg);border-radius:4px;overflow:hidden;">
+                                    <div style="height:100%;width:${Math.min(100, Math.max(0, m.score))}%;background:${barColor};border-radius:4px;transition:width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    return `
+                        <div style="background:var(--card-bg-alt);border-radius:10px;padding:16px;margin-bottom:10px;border:1px solid var(--border-accent);display:flex;align-items:center;gap:16px;">
+                            <div style="min-width:80px;text-align:center;">
+                                <div style="font-size:48px;font-weight:700;color:${gradeColor};line-height:1;">${net.grade}</div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${net.score != null ? net.score.toFixed(1) : ''}</div>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">${net.name}</div>
+                                ${barsHtml}
+                                <div style="font-size:10px;color:var(--text-faint);margin-top:4px;">Based on ${typeof net.data_days === 'number' ? net.data_days : 7} days of data</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                container.innerHTML = `
+                    <div style="margin-top:15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <div style="font-size:16px;color:var(--accent);font-weight:600;"><i class="fas fa-graduation-cap"></i> Network Report Card</div>
+                            <button onclick="showAdmin()" style="padding:6px 12px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:12px;">Back</button>
+                        </div>
+                        ${networks.length === 0 ? '<div style="padding:12px;color:var(--text-muted);text-align:center;font-size:13px;">No networks configured.</div>' : cardsHtml}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading report card:', error);
+                container.innerHTML = `
+                    <div style="margin-top:15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <div style="font-size:16px;color:var(--accent);font-weight:600;"><i class="fas fa-graduation-cap"></i> Network Report Card</div>
+                            <button onclick="showAdmin()" style="padding:6px 12px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:12px;">Back</button>
+                        </div>
+                        <div style="padding:12px;background:rgba(244,67,54,.15);border:1px solid #F44336;border-radius:8px;color:#F44336;font-size:13px;">Failed to load report card. Please try again.</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function showNetworksManager() {
+            try {
+                const response = await fetch('/api/networks');
+                const data = await response.json();
+                const networks = data.networks || [];
+                document.getElementById('adminFormContainer').innerHTML = `
+                    <div style="margin-top:15px;">
+                        <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;">Configured Networks (${networks.length}/6):</div>
+                        ${networks.map(n => {
+                            const addr = n.address || {};
+                            const addrText = addr.formatted || '';
+                            const siteType = n.site_type || 'store';
+                            const isOffice = siteType === 'office';
+                            const siteLabel = isOffice ? 'Office' : 'Store';
+                            const siteIcon = isOffice ? 'fa-building' : 'fa-store';
+                            const siteColor = isOffice ? 'rgba(77,166,255,0.15)' : 'rgba(76,175,80,0.15)';
+                            const siteBorder = isOffice ? 'var(--accent)' : '#4CAF50';
+                            return `
+                            <div style="background:var(--card-bg-alt);padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid var(--border-accent);">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div>
+                                        <strong style="color:var(--accent);">${n.name}</strong>
+                                        <span style="font-size:11px;color:var(--text-muted);"> (ID: ${n.id})</span>
+                                        <span style="font-size:11px;color:${n.authenticated ? '#4CAF50' : '#F44336'};">${n.authenticated ? ' ✓ Authenticated' : ' ✗ Not Authenticated'}</span>
+                                    </div>
+                                    <div style="display:flex;gap:4px;">
+                                        <button onclick="toggleSiteType('${n.id}','${siteType}')" style="padding:4px 8px;background:${siteColor};border:1px solid ${siteBorder};border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:11px;" title="Click to toggle between Store and Office">
+                                            <i class="fas ${siteIcon}"></i> ${siteLabel}
+                                        </button>
+                                        ${!n.authenticated ? `<button onclick="showAuthForm('${n.id}')" style="padding:4px 8px;background:rgba(76,175,80,.2);border:1px solid #4CAF50;border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:11px;"><i class="fas fa-key"></i> Auth</button>` : ''}
+                                        <button onclick="showAddressForm('${n.id}')" style="padding:4px 8px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:11px;">
+                                            <i class="fas fa-map-marker-alt"></i> ${addrText ? 'Edit' : 'Add'} Address
+                                        </button>
+                                        <button onclick="removeNetwork('${n.id}')" style="padding:4px 8px;background:rgba(244,67,54,.2);border:1px solid #F44336;border-radius:6px;color:#F44336;cursor:pointer;font-size:11px;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                ${addrText ? `<div style="font-size:11px;color:var(--text-faint);margin-top:4px;"><i class="fas fa-map-marker-alt"></i> ${addrText}</div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading networks:', error);
+            }
+        }
+
+        async function removeNetwork(networkId) {
+            if (!confirm(`Remove network ${networkId}? This cannot be undone.`)) return;
+            try {
+                await fetch(`/api/admin/networks/${networkId}`, { method: 'DELETE' });
+                showNetworksManager();
+                refreshData();
+            } catch (e) { console.error('Error removing network:', e); }
+        }
+
+        async function toggleSiteType(networkId, currentType) {
+            const newType = currentType === 'office' ? 'store' : 'office';
+            try {
+                const res = await fetch(`/api/admin/networks/${networkId}/site-type`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ site_type: newType })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Site type changed to ${newType}`, 'success');
+                    showNetworksManager();
+                    refreshData();
+                } else {
+                    showToast(data.message || 'Failed to update site type', 'error');
+                }
+            } catch (e) {
+                showToast('Error updating site type', 'error');
+            }
+        }
+
+        function showAuthForm(networkId) {
+            const inputStyle = 'width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;';
+            document.getElementById('adminFormContainer').innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;"><i class="fas fa-key"></i> Authenticate Network ${networkId}</div>
+                    <div id="authFeedback" style="display:none;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"></div>
+                    <div id="authStep1">
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Step 1: Send verification code to your email</p>
+                        <button onclick="sendAuthCode('${networkId}')" style="width:100%;padding:10px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;">Send Code</button>
+                    </div>
+                    <div id="authStep2" style="display:none;">
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Step 2: Enter the verification code from your email</p>
+                        <input id="authCode" style="${inputStyle}" placeholder="123456" maxlength="6">
+                        <button onclick="verifyAuthCode('${networkId}')" style="width:100%;padding:10px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">Verify Code</button>
+                    </div>
+                    <button onclick="showNetworksManager()" style="width:100%;padding:8px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:8px;color:var(--text-primary);font-size:12px;cursor:pointer;margin-top:8px;">Back</button>
+                </div>
+            `;
+        }
+
+        async function sendAuthCode(networkId) {
+            const fb = document.getElementById('authFeedback');
+            fb.style.display = 'block'; fb.style.background = 'rgba(77,166,255,.15)'; fb.style.border = '1px solid #4da6ff'; fb.style.color = '#4da6ff';
+            fb.textContent = 'Sending verification code...';
+            try {
+                const res = await fetch(`/api/admin/networks/${networkId}/auth`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'send' }) });
+                const data = await res.json();
+                if (data.success) {
+                    fb.style.background = 'rgba(76,175,80,.2)'; fb.style.border = '1px solid #4CAF50'; fb.style.color = '#4CAF50';
+                    fb.textContent = 'Code sent. Check your email.';
+                    document.getElementById('authStep1').style.display = 'none';
+                    document.getElementById('authStep2').style.display = 'block';
+                } else {
+                    fb.style.background = 'rgba(244,67,54,.2)'; fb.style.border = '1px solid #F44336'; fb.style.color = '#F44336';
+                    fb.textContent = data.message || 'Failed to send code.';
+                }
+            } catch (e) { fb.textContent = 'Network error.'; }
+        }
+
+        async function verifyAuthCode(networkId) {
+            const fb = document.getElementById('authFeedback');
+            const code = document.getElementById('authCode').value.trim();
+            if (!code) { fb.style.display = 'block'; fb.textContent = 'Enter the code.'; return; }
+            try {
+                const res = await fetch(`/api/admin/networks/${networkId}/auth`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: 'verify', code }) });
+                const data = await res.json();
+                fb.style.display = 'block';
+                if (data.success) {
+                    fb.style.background = 'rgba(76,175,80,.2)'; fb.style.border = '1px solid #4CAF50'; fb.style.color = '#4CAF50';
+                    fb.textContent = 'Authenticated successfully.';
+                    setTimeout(() => { showNetworksManager(); refreshData(); }, 1500);
+                } else {
+                    fb.style.background = 'rgba(244,67,54,.2)'; fb.style.border = '1px solid #F44336'; fb.style.color = '#F44336';
+                    fb.textContent = data.message || 'Verification failed.';
+                }
+            } catch (e) { fb.textContent = 'Network error.'; }
+        }
+
+        async function showAddressForm(networkId) {
+            // Fetch current address for this network
+            let current = {};
+            try {
+                const res = await fetch(`/api/admin/networks/${networkId}/address`);
+                const data = await res.json();
+                current = data.address || {};
+            } catch (e) { /* ignore */ }
+
+            const inputStyle = 'width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;';
+
+            document.getElementById('adminFormContainer').innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;">
+                        <i class="fas fa-map-marker-alt"></i> Set Address for Network ${networkId}
+                    </div>
+                    <div id="addressFeedback" style="display:none;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"></div>
+                    <div style="display:grid;gap:8px;">
+                        <div>
+                            <label style="font-size:11px;color:var(--text-muted);">Street *</label>
+                            <input id="addrStreet" style="${inputStyle}" placeholder="123 Main St" value="${current.street || ''}">
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div>
+                                <label style="font-size:11px;color:var(--text-muted);">City *</label>
+                                <input id="addrCity" style="${inputStyle}" placeholder="San Francisco" value="${current.city || ''}">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;color:var(--text-muted);">State *</label>
+                                <input id="addrState" style="${inputStyle}" placeholder="CA" value="${current.state || ''}">
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div>
+                                <label style="font-size:11px;color:var(--text-muted);">ZIP</label>
+                                <input id="addrZip" style="${inputStyle}" placeholder="94105" value="${current.zip || ''}">
+                            </div>
+                            <div>
+                                <label style="font-size:11px;color:var(--text-muted);">Country</label>
+                                <input id="addrCountry" style="${inputStyle}" placeholder="US" value="${current.country || 'US'}">
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:4px;">
+                            <button onclick="saveAddress('${networkId}')" style="flex:1;padding:10px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;">
+                                Save Address
+                            </button>
+                            <button onclick="showNetworksManager()" style="padding:10px 16px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveAddress(networkId) {
+            const feedback = document.getElementById('addressFeedback');
+            const street = document.getElementById('addrStreet').value.trim();
+            const city = document.getElementById('addrCity').value.trim();
+            const state = document.getElementById('addrState').value.trim();
+
+            if (!street || !city || !state) {
+                feedback.style.display = 'block';
+                feedback.style.background = 'rgba(244,67,54,.2)';
+                feedback.style.border = '1px solid #F44336';
+                feedback.style.color = '#F44336';
+                feedback.textContent = 'Street, city, and state are required.';
+                return;
+            }
+
+            feedback.style.display = 'block';
+            feedback.style.background = 'rgba(77,166,255,.15)';
+            feedback.style.border = '1px solid #4da6ff';
+            feedback.style.color = '#4da6ff';
+            feedback.textContent = 'Saving and geocoding address...';
+
+            try {
+                const res = await fetch(`/api/admin/networks/${networkId}/address`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        street,
+                        city,
+                        state,
+                        zip: document.getElementById('addrZip').value.trim(),
+                        country: document.getElementById('addrCountry').value.trim() || 'US'
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    feedback.style.background = 'rgba(76,175,80,.2)';
+                    feedback.style.border = '1px solid #4CAF50';
+                    feedback.style.color = '#4CAF50';
+                    const addr = data.address || {};
+                    if (addr.lat && addr.lng) {
+                        feedback.textContent = `Address saved and geocoded: ${addr.formatted}`;
+                    } else {
+                        feedback.textContent = `Address saved (geocoding unavailable — no API key or service error).`;
+                    }
+                    // Refresh cards and map in background
+                    setTimeout(() => { refreshData(); showNetworksManager(); }, 1500);
+                } else {
+                    feedback.style.background = 'rgba(244,67,54,.2)';
+                    feedback.style.border = '1px solid #F44336';
+                    feedback.style.color = '#F44336';
+                    feedback.textContent = data.message || 'Failed to save address.';
+                }
+            } catch (error) {
+                feedback.style.background = 'rgba(244,67,54,.2)';
+                feedback.style.border = '1px solid #F44336';
+                feedback.style.color = '#F44336';
+                feedback.textContent = 'Network error saving address.';
+                console.error('Error saving address:', error);
+            }
+        }
+
+        function showAddNetworkForm() {
+            const inputStyle = 'width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;';
+            document.getElementById('adminFormContainer').innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;"><i class="fas fa-plus-circle"></i> Add Network</div>
+                    <div id="addNetFeedback" style="display:none;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"></div>
+                    <div style="display:grid;gap:8px;">
+                        <div><label style="font-size:11px;color:var(--text-muted);">Network ID *</label><input id="netId" style="${inputStyle}" placeholder="20478317"></div>
+                        <div><label style="font-size:11px;color:var(--text-muted);">Name *</label><input id="netName" style="${inputStyle}" placeholder="Main Office"></div>
+                        <div><label style="font-size:11px;color:var(--text-muted);">Email *</label><input id="netEmail" style="${inputStyle}" placeholder="owner@business.com" type="email"></div>
+                        <div><label style="font-size:11px;color:var(--text-muted);">Site Type</label>
+                            <select id="netSiteType" style="${inputStyle}">
+                                <option value="store">Store / Restaurant</option>
+                                <option value="office">Office / Back-office</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:4px;">
+                            <button onclick="addNetwork()" style="flex:1;padding:10px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;">Add Network</button>
+                            <button onclick="showAdmin()" style="padding:10px 16px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function addNetwork() {
+            const fb = document.getElementById('addNetFeedback');
+            const id = document.getElementById('netId').value.trim();
+            const name = document.getElementById('netName').value.trim();
+            const email = document.getElementById('netEmail').value.trim();
+            const siteType = document.getElementById('netSiteType').value;
+            if (!id || !name || !email) {
+                fb.style.display = 'block'; fb.style.background = 'rgba(244,67,54,.2)'; fb.style.border = '1px solid #F44336'; fb.style.color = '#F44336';
+                fb.textContent = 'All fields are required.'; return;
+            }
+            try {
+                const res = await fetch('/api/admin/networks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ network_id: id, name, email, site_type: siteType }) });
+                const data = await res.json();
+                fb.style.display = 'block';
+                if (data.success) {
+                    fb.style.background = 'rgba(76,175,80,.2)'; fb.style.border = '1px solid #4CAF50'; fb.style.color = '#4CAF50';
+                    fb.textContent = 'Network added. You can now authenticate it.';
+                    setTimeout(() => showNetworksManager(), 1500);
+                } else {
+                    fb.style.background = 'rgba(244,67,54,.2)'; fb.style.border = '1px solid #F44336'; fb.style.color = '#F44336';
+                    fb.textContent = data.message || 'Failed to add network.';
+                }
+            } catch (e) { fb.style.display = 'block'; fb.textContent = 'Network error.'; }
+        }
+
+        function showTimezoneForm() {
+            const inputStyle = 'width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;';
+            document.getElementById('adminFormContainer').innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;"><i class="fas fa-clock"></i> Timezone Settings</div>
+                    <div id="tzFeedback" style="display:none;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"></div>
+                    <div style="display:grid;gap:8px;">
+                        <div><label style="font-size:11px;color:var(--text-muted);">Timezone</label><input id="tzInput" style="${inputStyle}" placeholder="America/New_York" value="America/New_York"></div>
+                        <div style="display:flex;gap:8px;margin-top:4px;">
+                            <button onclick="saveTimezone()" style="flex:1;padding:10px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;">Save</button>
+                            <button onclick="showAdmin()" style="padding:10px 16px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveTimezone() {
+            const fb = document.getElementById('tzFeedback');
+            const tz = document.getElementById('tzInput').value.trim();
+            if (!tz) { fb.style.display = 'block'; fb.textContent = 'Timezone is required.'; return; }
+            try {
+                const res = await fetch('/api/admin/timezone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timezone: tz }) });
+                const data = await res.json();
+                fb.style.display = 'block';
+                if (data.success) {
+                    fb.style.background = 'rgba(76,175,80,.2)'; fb.style.border = '1px solid #4CAF50'; fb.style.color = '#4CAF50';
+                    fb.textContent = `Timezone updated to ${tz}`;
+                } else {
+                    fb.style.background = 'rgba(244,67,54,.2)'; fb.style.border = '1px solid #F44336'; fb.style.color = '#F44336';
+                    fb.textContent = data.message || 'Invalid timezone.';
+                }
+            } catch (e) { fb.style.display = 'block'; fb.textContent = 'Network error.'; }
+        }
+
+        // ---------------------------------------------------------------
+        // Logo Upload
+        // ---------------------------------------------------------------
+
+        function loadCustomLogo() {
+            const img = document.getElementById('customLogo');
+            const defaultLogo = document.getElementById('defaultLogo');
+            const testImg = new Image();
+            testImg.onload = function() {
+                if (this.width > 0) {
+                    img.src = '/api/admin/logo?t=' + Date.now();
+                    img.style.display = 'block';
+                    defaultLogo.style.display = 'none';
+                }
+            };
+            testImg.onerror = function() {
+                img.style.display = 'none';
+                defaultLogo.style.display = 'inline-block';
+            };
+            testImg.src = '/api/admin/logo?t=' + Date.now();
+        }
+
+        async function loadNetworkLogs(networkId) {
+            try {
+                const resp = await fetch(`/api/network/${networkId}/logs?lines=50`);
+                const data = await resp.json();
+                const summaryEl = document.getElementById('networkLogSummary');
+                const viewerEl = document.getElementById('networkLogViewer');
+                if (!summaryEl || !viewerEl) return;
+
+                const source = data.source === 'eero' ? 'eero API' : data.source === 'dashboard' ? 'dashboard logs' : 'unknown';
+                summaryEl.innerHTML = `<div style="margin-bottom:6px;font-size:10px;color:var(--text-dim);text-transform:uppercase;">Source: ${source}</div>${data.summary || 'No summary available.'}`;
+
+                if (data.logs && data.logs.length > 0) {
+                    viewerEl.innerHTML = data.logs.map(l => {
+                        let cls = 'color:rgba(255,255,255,.6)';
+                        const ll = l.toLowerCase();
+                        if (ll.includes('error') || ll.includes('offline') || ll.includes('fail')) cls = 'color:#F44336';
+                        else if (ll.includes('warning') || ll.includes('reboot') || ll.includes('restart')) cls = 'color:#FFC107';
+                        else if (ll.includes('join') || ll.includes('connect') || ll.includes('online')) cls = 'color:#4CAF50';
+                        return `<div style="${cls};padding:1px 0;white-space:pre-wrap;word-break:break-all;">${l.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+                    }).join('');
+                    viewerEl.scrollTop = viewerEl.scrollHeight;
+                } else {
+                    viewerEl.innerHTML = '<span style="color:var(--text-dim);">No log entries found.</span>';
+                }
+            } catch (e) {
+                const summaryEl = document.getElementById('networkLogSummary');
+                if (summaryEl) summaryEl.innerHTML = `<span style="color:#F44336;">Failed to load logs: ${e.message}</span>`;
+            }
+        }
+
+        function refreshNetworkLogs(networkId) {
+            const summaryEl = document.getElementById('networkLogSummary');
+            if (summaryEl) summaryEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+            loadNetworkLogs(networkId);
+        }
+
+        async function showSystemLogs() {
+            const container = document.getElementById('adminFormContainer');
+            container.innerHTML = '<div style="margin-top:15px;"><div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;"><i class="fas fa-terminal"></i> System Logs</div><div style="text-align:center;padding:20px;color:var(--text-faint);"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div>';
+            try {
+                const lines = 200;
+                const resp = await fetch(`/api/admin/logs?lines=${lines}`);
+                const data = await resp.json();
+                const logLines = (data.logs || []).map(l => {
+                    let cls = 'color:var(--text-secondary)';
+                    if (l.includes('ERROR')) cls = 'color:#F44336';
+                    else if (l.includes('WARNING')) cls = 'color:#FFC107';
+                    else if (l.includes('INFO')) cls = 'color:rgba(255,255,255,.5)';
+                    return `<div style="${cls};padding:1px 0;white-space:pre-wrap;word-break:break-all;">${l.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+                }).join('');
+                container.innerHTML = `<div style="margin-top:15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div style="font-size:14px;color:var(--accent);font-weight:600;"><i class="fas fa-terminal"></i> System Logs (last ${data.logs.length} of ${data.total_lines} lines)</div>
+                        <button onclick="showSystemLogs()" style="padding:4px 10px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                    <div id="logViewer" style="background:var(--log-bg);border-radius:8px;padding:10px;max-height:400px;overflow-y:auto;font-family:'Courier New',monospace;font-size:11px;line-height:1.4;">${logLines}</div>
+                </div>`;
+                const viewer = document.getElementById('logViewer');
+                viewer.scrollTop = viewer.scrollHeight;
+            } catch (e) {
+                container.innerHTML = `<div style="margin-top:15px;color:#F44336;">Failed to load logs: ${e.message}</div>`;
+            }
+        }
+
+        async function showTomTomSettings() {
+            const container = document.getElementById('adminFormContainer');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i></div>';
+            try {
+                const resp = await fetch('/api/admin/tomtom');
+                const data = await resp.json();
+                container.innerHTML = `
+                    <div style="margin-top:15px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <div style="font-size:14px;color:var(--accent);font-weight:600;"><i class="fas fa-car"></i> Traffic API Key</div>
+                            <button onclick="showAdmin()" style="padding:6px 12px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:12px;">Back</button>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.5;">
+                            The Traffic widget uses <a href="https://my.tomtom.com/" target="_blank" style="color:var(--accent);">TomTom</a> to show real-time road conditions near your locations.
+                            Get a free API key in 30 seconds at <a href="https://my.tomtom.com/" target="_blank" style="color:var(--accent);">my.tomtom.com</a>.
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                            <span style="font-size:12px;color:${data.configured ? '#4CAF50' : '#F44336'};">
+                                <i class="fas fa-${data.configured ? 'check-circle' : 'times-circle'}"></i>
+                                ${data.configured ? 'Key configured (' + data.key_preview + ')' : 'No key configured'}
+                            </span>
+                        </div>
+                        <input id="tomtomKeyInput" type="text" placeholder="Paste your TomTom API key here" style="width:100%;padding:10px;border:1px solid var(--border-accent);border-radius:8px;background:var(--card-bg-alt);color:var(--text-primary);font-size:13px;box-sizing:border-box;margin-bottom:8px;">
+                        <div style="display:flex;gap:8px;">
+                            <button onclick="saveTomTomKey()" style="flex:1;padding:10px;background:var(--accent);border:none;border-radius:8px;color:white;font-size:13px;cursor:pointer;">Save Key</button>
+                            <button onclick="removeTomTomKey()" style="padding:10px 16px;background:rgba(244,67,54,.15);border:1px solid #F44336;border-radius:8px;color:#F44336;font-size:13px;cursor:pointer;">Remove</button>
+                        </div>
+                        <div id="tomtomStatus" style="margin-top:8px;font-size:12px;"></div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = '<div style="color:#F44336;padding:12px;">Error loading TomTom settings.</div>';
+            }
+        }
+
+        async function saveTomTomKey() {
+            const key = document.getElementById('tomtomKeyInput').value.trim();
+            if (!key) return;
+            const resp = await fetch('/api/admin/tomtom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key}) });
+            const data = await resp.json();
+            document.getElementById('tomtomStatus').innerHTML = data.success ? '<span style="color:#4CAF50;"><i class="fas fa-check"></i> Key saved. Traffic data will load on next refresh.</span>' : '<span style="color:#F44336;">Error saving key.</span>';
+            if (data.success) setTimeout(() => { loadStoreActivity(); }, 500);
+        }
+
+        async function removeTomTomKey() {
+            await fetch('/api/admin/tomtom', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key: ''}) });
+            showTomTomSettings();
+        }
+
+        function showLogoUpload() {
+            const img = document.getElementById('customLogo');
+            const hasLogo = img.style.display !== 'none' && img.src;
+            document.getElementById('adminFormContainer').innerHTML = `
+                <div style="margin-top:15px;">
+                    <div style="font-size:14px;color:var(--accent);font-weight:600;margin-bottom:10px;"><i class="fas fa-image"></i> Dashboard Logo</div>
+                    <div id="logoFeedback" style="display:none;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"></div>
+                    <div style="background:var(--card-bg-alt);padding:16px;border-radius:10px;margin-bottom:12px;">
+                        <div style="text-align:center;margin-bottom:12px;">
+                            <div id="logoPreview" style="display:inline-block;background:var(--input-bg);border:2px dashed var(--input-border);border-radius:10px;padding:20px;min-width:200px;min-height:80px;">
+                                ${hasLogo
+                                    ? `<img src="/api/admin/logo?t=${Date.now()}" style="max-height:60px;max-width:200px;object-fit:contain;">`
+                                    : '<span style="color:var(--text-dim);font-size:12px;">No logo uploaded</span>'
+                                }
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-faint);margin-bottom:10px;text-align:center;">
+                            PNG, SVG, WebP, or GIF with transparent background. Max 2 MB.
+                        </div>
+                        <input type="file" id="logoFileInput" accept=".png,.svg,.webp,.gif" style="display:none;" onchange="handleLogoSelect(this)">
+                        <div style="display:flex;gap:8px;justify-content:center;">
+                            <button onclick="document.getElementById('logoFileInput').click()" style="padding:10px 20px;background:var(--btn-gradient);border:none;border-radius:8px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;">
+                                <i class="fas fa-upload"></i> Choose File
+                            </button>
+                            ${hasLogo ? `<button onclick="removeLogo()" style="padding:10px 16px;background:rgba(244,67,54,.2);border:1px solid #F44336;border-radius:8px;color:#F44336;font-size:13px;cursor:pointer;">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>` : ''}
+                            <button onclick="showAdmin()" style="padding:10px 16px;background:var(--cancel-bg);border:1px solid var(--cancel-border);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;">Back</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleLogoSelect(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            const fb = document.getElementById('logoFeedback');
+
+            // Preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('logoPreview').innerHTML =
+                    `<img src="${e.target.result}" style="max-height:60px;max-width:200px;object-fit:contain;">`;
+            };
+            reader.readAsDataURL(file);
+
+            // Upload
+            const formData = new FormData();
+            formData.append('logo', file);
+            fb.style.display = 'block';
+            fb.style.background = 'rgba(77,166,255,.2)';
+            fb.style.border = '1px solid #4da6ff';
+            fb.style.color = '#4da6ff';
+            fb.textContent = 'Uploading...';
+
+            fetch('/api/admin/logo', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        fb.style.background = 'rgba(76,175,80,.2)';
+                        fb.style.border = '1px solid #4CAF50';
+                        fb.style.color = '#4CAF50';
+                        fb.textContent = 'Logo uploaded. It will appear in the header.';
+                        loadCustomLogo();
+                        setTimeout(() => showLogoUpload(), 1000);
+                    } else {
+                        fb.style.background = 'rgba(244,67,54,.2)';
+                        fb.style.border = '1px solid #F44336';
+                        fb.style.color = '#F44336';
+                        fb.textContent = data.message || 'Upload failed.';
+                    }
+                })
+                .catch(() => {
+                    fb.style.background = 'rgba(244,67,54,.2)';
+                    fb.style.border = '1px solid #F44336';
+                    fb.style.color = '#F44336';
+                    fb.textContent = 'Network error uploading logo.';
+                });
+        }
+
+        async function removeLogo() {
+            try {
+                const res = await fetch('/api/admin/logo', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('customLogo').style.display = 'none';
+                    document.getElementById('defaultLogo').style.display = 'inline-block';
+                    showLogoUpload();
+                }
+            } catch (e) {
+                console.error('Error removing logo:', e);
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // Chart.js Visualizations
+        // ---------------------------------------------------------------
+        let deviceCountChart = null;
+        let comparisonChartInstance = null;
+        let chartRangeHours = 1;
+
+        function setChartRange(hours) {
+            chartRangeHours = hours;
+            document.querySelectorAll('#chartTimeRange .range-btn').forEach(btn => {
+                const isActive = parseInt(btn.dataset.hours) === hours;
+                btn.style.background = isActive ? 'var(--accent-bg)' : 'transparent';
+            });
+            updateCharts();
+        }
+
+        function getChartDefaults() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: cv('--chart-text'), font: { size: 11 } } }
+                },
+                scales: {
+                    x: { ticks: { color: cv('--chart-tick'), font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: cv('--grid-line') } },
+                    y: { ticks: { color: cv('--chart-tick'), font: { size: 10 } }, grid: { color: cv('--grid-line') } }
+                }
+            };
+        }
+
+        // ---------------------------------------------------------------
+        // Gauge Helpers — half-doughnut chart + color functions
+        // ---------------------------------------------------------------
+
+        function getHealthGaugeColor(score) {
+            if (score >= 80) return '#4CAF50';
+            if (score >= 50) return '#FFC107';
+            return '#F44336';
+        }
+
+        function getBandwidthGaugeColor(utilization) {
+            if (utilization <= 60) return '#4CAF50';
+            if (utilization <= 80) return '#FFC107';
+            return '#F44336';
+        }
+
+        function computeHealthScore(network) {
+            const totalNodes = network.eero_count || 0;
+            const greenNodes = network.eero_online || 0;
+            const nodeScore = totalNodes > 0 ? (greenNodes / totalNodes) * 100 : 0;
+
+            // Get latest signal value from signal_strength_avg array
+            const signalArr = network.signal_strength_avg || [];
+            const latestSignal = signalArr.length > 0 ? (signalArr[signalArr.length - 1].avg_dbm || signalArr[signalArr.length - 1].value || -90) : -90;
+            const signalScore = Math.max(0, Math.min(100, ((latestSignal + 90) / 60) * 100));
+
+            const uptimeScore = network.uptime_24h != null ? network.uptime_24h : 0;
+            const bandwidthScore = 100 - (network.bandwidth_utilization || 0);
+
+            return Math.round(nodeScore * 0.25 + signalScore * 0.25 + uptimeScore * 0.25 + bandwidthScore * 0.25);
+        }
+
+        function createHalfDoughnut(canvasId, value, maxValue, colorFn, subtitle, useCeil) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+
+            const fillColor = colorFn(value);
+            const remainder = Math.max(0, maxValue - value);
+
+            // Plugin to draw the numeric value centered below the arc
+            const centerTextPlugin = {
+                id: 'centerText_' + canvasId,
+                afterDraw(chart) {
+                    const { ctx, chartArea } = chart;
+                    const centerX = (chartArea.left + chartArea.right) / 2;
+                    const centerY = chartArea.bottom;
+                    ctx.save();
+                    const displayVal = useCeil ? Math.ceil(value) : Math.round(value);
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillStyle = cv('--chart-text');
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(displayVal + '%', centerX, centerY - 20);
+                    if (subtitle) {
+                        ctx.font = '7px sans-serif';
+                        ctx.fillStyle = cv('--text-muted');
+                        ctx.fillText('of ' + subtitle, centerX, centerY - 8);
+                    }
+                    ctx.restore();
+                }
+            };
+
+            return new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [value, remainder],
+                        backgroundColor: [fillColor, cv('--stat-bg')],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    rotation: -90,
+                    circumference: 180,
+                    cutout: '75%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: { enabled: false },
+                        legend: { display: false }
+                    }
+                },
+                plugins: [centerTextPlugin]
+            });
+        }
+
+        function formatChartTime(isoStr) {
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function updateCharts() {
+            try {
+                const url = chartRangeHours > 0 ? `/api/dashboard/${chartRangeHours}` : '/api/dashboard';
+                const response = await fetch(url);
+                const data = await response.json();
+
+                const chartsSection = document.getElementById('chartsSection');
+                const connectedUsers = data.connected_users || [];
+                const signalData = data.signal_strength_avg || [];
+
+                if (connectedUsers.length < 2 && signalData.length < 2) {
+                    chartsSection.style.display = 'none';
+                    return;
+                }
+                chartsSection.style.display = 'block';
+
+                // Device Count Chart
+                const dcLabels = connectedUsers.map(p => formatChartTime(p.timestamp));
+                const dcValues = connectedUsers.map(p => p.count);
+
+                if (deviceCountChart) {
+                    deviceCountChart.data.labels = dcLabels;
+                    deviceCountChart.data.datasets[0].data = dcValues;
+                    deviceCountChart.update('none');
+                } else {
+                    const ctx = document.getElementById('deviceCountChart').getContext('2d');
+                    deviceCountChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dcLabels,
+                            datasets: [{
+                                label: 'Aggregate Device Count',
+                                data: dcValues,
+                                borderColor: '#4da6ff',
+                                backgroundColor: 'rgba(77,166,255,.15)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 2
+                            }]
+                        },
+                        options: getChartDefaults()
+                    });
+                }
+
+                // Load store activity & traffic (full-width section)
+                loadStoreActivity();
+                // Load heatmap (now in charts grid)
+                loadHeatmap();
+            } catch (error) {
+                console.error('Error updating charts:', error);
+            }
+        }
+
+        let storeActivityCharts = [];
+
+        async function loadStoreActivity() {
+            const container = document.getElementById('storeActivityContent');
+            if (!container) return;
+
+            // Destroy previous sparkline charts
+            storeActivityCharts.forEach(c => c.destroy());
+            storeActivityCharts = [];
+
+            try {
+                const [activityResp, trafficResp, statsResp] = await Promise.all([
+                    fetch('/api/store-activity'),
+                    fetch('/api/traffic'),
+                    fetch('/api/network-stats')
+                ]);
+                const activity = await activityResp.json();
+                const traffic = await trafficResp.json();
+                const statsData = await statsResp.json();
+                const hasTrafficKey = !traffic._no_key;
+
+                // Build site type map and filter to stores only
+                const siteTypeMap = {};
+                (statsData.networks || []).forEach(n => { siteTypeMap[n.id] = n.site_type || 'store'; });
+                const networkIds = Object.keys(activity).filter(nid => siteTypeMap[nid] !== 'office');
+
+                if (networkIds.length === 0) {
+                    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px;">No activity data yet. Data will appear after a few refresh cycles.</div>';
+                    document.getElementById('storeActivitySection').style.display = 'none';
+                    return;
+                }
+
+                // Show the full-width store activity section
+                document.getElementById('storeActivitySection').style.display = 'block';
+
+                container.innerHTML = networkIds.map(nid => {
+                    const a = activity[nid];
+                    const t = hasTrafficKey ? traffic[nid] : null;
+                    const trafficHtml = t
+                        ? `<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
+                             <span style="font-size:14px;">${t.icon}</span>
+                             <span style="color:${t.color};font-weight:600;">${t.condition}</span>
+                             <span>${t.current_speed_mph}/${t.free_flow_speed_mph} mph</span>
+                           </div>`
+                        : (!hasTrafficKey ? '' : '');
+
+                    // Build traffic dots row from timeline data
+                    const tl = a.traffic_timeline || [];
+                    const trafficDotsHtml = hasTrafficKey && tl.some(x => x)
+                        ? `<div style="display:flex;gap:1px;margin-top:4px;padding:0 4px;justify-content:space-between;">
+                             ${tl.map((snap, i) => {
+                                 if (!snap) return `<div style="width:8px;height:8px;border-radius:50%;background:var(--divider);" title="${a.sparkline_labels ? a.sparkline_labels[i] : ''}"></div>`;
+                                 return `<div style="width:8px;height:8px;border-radius:50%;background:${snap.color};" title="${a.sparkline_labels ? a.sparkline_labels[i] : ''} — ${snap.condition} ${snap.current_speed_mph}/${snap.free_flow_speed_mph} mph"></div>`;
+                             }).join('')}
+                           </div>`
+                        : '';
+
+                    // Determine if traffic overlay will be shown
+                    const hasTL = hasTrafficKey && (a.traffic_timeline || []).some(x => x);
+
+                    return `
+                        <div style="background:var(--stat-bg);border-radius:8px;padding:10px 12px;border-left:3px solid ${a.level_color};">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <div style="font-size:12px;font-weight:600;">${a.name}</div>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <span style="font-size:14px;">${a.level_icon}</span>
+                                    <span style="font-size:11px;font-weight:600;color:${a.level_color};">${a.level}</span>
+                                </div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <div style="font-size:11px;color:var(--text-muted);">
+                                    <span style="font-size:18px;font-weight:700;color:var(--text-primary);">${a.current}</span> now
+                                    · avg ${a.average} · peak ${a.peak}
+                                </div>
+                                ${trafficHtml}
+                            </div>
+                            <div style="display:flex;align-items:stretch;gap:6px;">
+                                <div style="display:flex;flex-direction:column;justify-content:space-around;align-items:flex-start;width:auto;flex-shrink:0;padding:2px 0;gap:2px;">
+                                    <div style="display:flex;align-items:center;gap:3px;white-space:nowrap;">
+                                        <i class="fas fa-wifi" style="font-size:8px;color:${a.level_color};"></i>
+                                        <span style="font-size:8px;color:${a.level_color};font-weight:600;">WiFi</span>
+                                    </div>
+                                    ${hasTL ? `<div style="display:flex;align-items:center;gap:3px;white-space:nowrap;">
+                                        <i class="fas fa-car" style="font-size:8px;color:#FF9800;"></i>
+                                        <span style="font-size:8px;color:#FF9800;font-weight:600;">Road</span>
+                                    </div>` : ''}
+                                </div>
+                                <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+                                    <div style="position:relative;height:60px;">
+                                        <canvas id="activity-spark-${nid}"></canvas>
+                                    </div>
+                                    ${trafficDotsHtml}
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('');
+
+                if (!hasTrafficKey) {
+                    container.innerHTML += `
+                        <div style="text-align:center;padding:8px;font-size:11px;color:var(--text-muted);background:rgba(77,166,255,0.05);border-radius:6px;border:1px dashed var(--border-accent);">
+                            <i class="fas fa-car" style="margin-right:4px;"></i> Add a <a href="#" onclick="event.preventDefault();showAdmin();setTimeout(showTomTomSettings,300);" style="color:var(--accent);">TomTom API key</a> to overlay road traffic data.
+                            Free key at <a href="https://my.tomtom.com/" target="_blank" style="color:var(--accent);">my.tomtom.com</a>
+                        </div>`;
+                }
+
+                // Create sparkline charts with 10-min time labels and optional traffic overlay
+                networkIds.forEach(nid => {
+                    const a = activity[nid];
+                    const canvas = document.getElementById(`activity-spark-${nid}`);
+                    if (!canvas || !a.sparkline_counts.length) return;
+
+                    const labels = a.sparkline_labels || a.sparkline_counts.map((_, i) => i);
+                    const datasets = [{
+                        label: 'Devices',
+                        data: a.sparkline_counts,
+                        borderColor: a.level_color,
+                        backgroundColor: a.level_color + '20',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        pointBackgroundColor: a.level_color,
+                        borderWidth: 1.5,
+                        yAxisID: 'y'
+                    }];
+
+                    // Overlay traffic ratio as a second dataset if available
+                    const tl = a.traffic_timeline || [];
+                    if (hasTrafficKey && tl.some(x => x)) {
+                        const trafficRatios = tl.map(snap => snap ? Math.round(snap.ratio * 100) : null);
+                        const trafficColors = tl.map(snap => snap ? snap.color : '#868e96');
+                        datasets.push({
+                            label: 'Traffic Flow %',
+                            data: trafficRatios,
+                            borderColor: '#FF9800',
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            borderDash: [4, 3],
+                            tension: 0.3,
+                            pointRadius: trafficRatios.map(v => v != null ? 3 : 0),
+                            pointBackgroundColor: trafficColors,
+                            pointBorderColor: trafficColors,
+                            fill: false,
+                            spanGaps: true,
+                            yAxisID: 'y1'
+                        });
+                    }
+
+                    const chart = new Chart(canvas, {
+                        type: 'line',
+                        data: { labels, datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { right: 6 } },
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    enabled: true,
+                                    backgroundColor: 'rgba(0,0,0,.8)',
+                                    titleFont: { size: 10 },
+                                    bodyFont: { size: 10 },
+                                    padding: 6,
+                                    callbacks: {
+                                        label: function(ctx) {
+                                            if (ctx.datasetIndex === 0) return `${ctx.parsed.y} wifi devices`;
+                                            if (ctx.parsed.y != null) return `Traffic: ${ctx.parsed.y}% flow`;
+                                            return '';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    display: true,
+                                    ticks: {
+                                        color: cv('--chart-tick'),
+                                        font: { size: 9 },
+                                        maxRotation: 0,
+                                        callback: function(val, idx) {
+                                            return idx % 4 === 0 ? this.getLabelForValue(val) : '';
+                                        }
+                                    },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    display: false,
+                                    beginAtZero: true,
+                                    position: 'left'
+                                },
+                                y1: {
+                                    display: false,
+                                    beginAtZero: true,
+                                    max: 100,
+                                    position: 'right'
+                                }
+                            }
+                        }
+                    });
+                    storeActivityCharts.push(chart);
+                });
+
+            } catch (e) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px;">Unable to load activity data.</div>';
+                document.getElementById('storeActivitySection').style.display = 'block';
+            }
+        }
+
+        async function showAlerts() {
+            try {
+                const response = await fetch('/api/alerts');
+                const data = await response.json();
+                const container = document.getElementById('alertsList');
+                const alerts = data.alerts || [];
+
+                if (alerts.length === 0) {
+                    container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">No alerts — all networks are running smoothly.</p>';
+                } else {
+                    container.innerHTML = alerts.map(alert => {
+                        const severityColor = alert.severity === 'critical' ? '#F44336' : '#FFC107';
+                        const icon = alert.severity === 'critical' ? 'fa-exclamation-circle' : 'fa-exclamation-triangle';
+                        const time = new Date(alert.created_at).toLocaleString();
+                        const ackBtn = alert.acknowledged
+                            ? '<span style="font-size:11px;color:#4CAF50;"><i class="fas fa-check"></i> Acknowledged</span>'
+                            : `<button onclick="acknowledgeAlert(${alert.id})" style="padding:4px 10px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;color:var(--text-primary);cursor:pointer;font-size:11px;">Acknowledge</button>`;
+                        return `
+                            <div style="background:var(--card-bg-alt);padding:12px;border-radius:10px;border-left:4px solid ${severityColor};margin-bottom:10px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                    <span style="color:${severityColor};font-weight:600;font-size:13px;"><i class="fas ${icon}"></i> ${alert.severity.toUpperCase()}</span>
+                                    <span style="font-size:11px;color:var(--text-faint);">${time}</span>
+                                </div>
+                                <div style="font-size:13px;margin-bottom:8px;">${alert.message}</div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="font-size:11px;color:var(--text-faint);">${alert.alert_type}</span>
+                                    ${ackBtn}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                openModal('alertsModal');
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+            }
+        }
+
+        async function acknowledgeAlert(alertId) {
+            try {
+                await fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' });
+                showAlerts(); // Refresh the list
+                updateAlertBadge();
+            } catch (error) {
+                console.error('Error acknowledging alert:', error);
+            }
+        }
+
+        async function updateAlertBadge() {
+            try {
+                const response = await fetch('/api/alerts?limit=1');
+                const data = await response.json();
+                const badge = document.getElementById('alertBadge');
+                const count = data.unacknowledged_count || 0;
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (error) {
+                // Silently fail — badge is non-critical
+            }
+        }
+
+        // Offline timer tick — updates every second
+        function tickOfflineTimers() {
+            document.querySelectorAll('[id^="offline-timer-"]').forEach(el => {
+                const since = el.dataset.offlineSince;
+                if (!since) return;
+                const elapsed = Math.floor((Date.now() - new Date(since).getTime()) / 1000);
+                if (elapsed < 0) return;
+                const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+                const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+                const s = String(elapsed % 60).padStart(2, '0');
+                el.querySelector('span').textContent = `${h}:${m}:${s}`;
+            });
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            // Set theme icon
+            const theme = getTheme();
+            document.getElementById('themeIcon').className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            loadCustomLogo();
+            refreshData();
+            setInterval(refreshData, 60000); // Auto-refresh every 60 seconds
+            setInterval(tickOfflineTimers, 1000); // Tick offline timers every second
+        });
+    </script>
+</body>
+</html>
