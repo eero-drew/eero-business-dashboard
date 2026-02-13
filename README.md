@@ -80,6 +80,7 @@ The script creates a virtual environment, installs dependencies, and starts Flas
 
 1. Open the dashboard → click **Admin**
 2. **Manage Networks** → add your eero network ID, name, and email
+   > ⚠️ The email address you enter **must belong to an account added to the eero Organization** — otherwise it won't have access to the API.
 3. **Authenticate** → enter the verification code sent to your email
 4. Set a **physical address** for each location (unlocks map, Street View, traffic, and weather)
 5. *(Optional)* Add a **TomTom API key** under Admin → Traffic API Key for road traffic data
